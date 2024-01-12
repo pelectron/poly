@@ -30,3 +30,6 @@
 *.exe
 *.out
 *.app
+.cache/clangd/index
+subprojects/packagecache
+subprojects/Catch2-3.4.0
