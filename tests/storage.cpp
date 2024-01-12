@@ -52,7 +52,7 @@ struct Track {
     assert(count != nullptr);
     --(*count);
   }
-  int *count;
+  volatile int *count;
 };
 TEST_CASE("ref_storage", "[storage]") {
   tracker a;
@@ -66,91 +66,139 @@ TEST_CASE("ref_storage", "[storage]") {
   }
   CHECK(tracker::alive == 1);
 }
-TEMPLATE_TEST_CASE_SIG("local_storage", "[storage]",
-                       ((size_t S, size_t A), S, A), (32, 8), (8, 8)) {
-  int count = 0;
-  Track t(count);
-  poly::local_storage<S, A> s;
-  CHECK(count == 1);
-  SECTION("reset") {
-    CHECK(s.data() == nullptr);
-    s.reset();
+TEMPLATE_TEST_CASE("generic copyable storage test", "[storage]",
+                   (poly::local_storage<32, 8>), (poly::sbo_storage<32, 8>)) {
+  using Storage = TestType;
+
+  SECTION("default constructed storages are empty") {
+    Storage s;
     CHECK(s.data() == nullptr);
   }
-  CHECK(count == 1);
-  SECTION("emplace and reset") {
-    s.template emplace<Track>(Track{count});
-    CHECK(count == 2);
-    CHECK(s.data() != nullptr);
-    s.reset();
-    CHECK(count == 1);
-    CHECK(s.data() == nullptr);
+  SECTION("ctor from T") {
+    SECTION("move a T") {
+      int count = 0;
+      Storage s{std::move(Track{count})};
+      CHECK(count == 1);
+      CHECK(s.data() != nullptr);
+    }
+    SECTION("copy a T") {
+      int count = 0;
+      const Track t{count};
+      CHECK(count == 1);
+      Storage s{t};
+      CHECK(count == 2);
+      CHECK(s.data() != nullptr);
+    }
   }
-  CHECK(count == 1);
-  SECTION("ctor and dtor") {
-    poly::local_storage<S, A> s1{Track{count}};
-    CHECK(count == 2);
-    CHECK(s1.data() != nullptr);
-    poly::local_storage<S, A> s2(Track{count});
-    CHECK(count == 3);
-    CHECK(s2.data() != nullptr);
+  SECTION("copy ctor") {
+    SECTION("copy empty storage") {
+      const Storage s1{};
+      Storage s2{s1};
+      CHECK(s1.data() == nullptr);
+      CHECK(s2.data() == nullptr);
+    }
+    SECTION("copy non empty storage") {
+      int count = 0;
+      const Storage s1{Track{count}};
+      CHECK(count == 1);
+      Storage s2(s1); // TODO: FIX
+      CHECK(count == 2);
+      CHECK(s1.data() != nullptr);
+      CHECK(s2.data() != nullptr);
+    }
   }
-  CHECK(count == 1);
-  SECTION("local_storage operator=(const local_storage&)") {
-    s.template emplace<Track>(count);
-    poly::local_storage<S, A> s1(Track{count});
-    CHECK(count == 3);
-    CHECK(s.data() != nullptr);
-    CHECK(s1.data() != nullptr);
-    s = s1;
-    CHECK(count == 3);
-    CHECK(s.data() != nullptr);
-    s = poly::local_storage<S, A>(Track{count});
-    CHECK(count == 3);
-    CHECK(s.data() != nullptr);
+  SECTION("move ctor") {
+    SECTION("move empty storage") {
+      Storage s1{};
+      Storage s2{std::move(s1)};
+      CHECK(s1.data() == nullptr);
+      CHECK(s2.data() == nullptr);
+    }
+    SECTION("move non empty storage") {
+      int count = 0;
+      Storage s1{Track{count}};
+      CHECK(count == 1);
+      Storage s2{std::move(s1)};
+      CHECK(count == 1);
+      CHECK(s1.data() == nullptr);
+      CHECK(s2.data() != nullptr);
+    }
   }
-}
-TEMPLATE_TEST_CASE_SIG("local_move_only_storage", "[storage]",
-                       ((size_t S, size_t A), S, A), (32, 8), (8, 8)) {
-  int count = 0;
-  Track t(count);
-  poly::local_move_only_storage<S, A> s;
-  CHECK(count == 1);
-  SECTION("reset") {
-    CHECK(s.data() == nullptr);
-    s.reset();
-    CHECK(s.data() == nullptr);
+  SECTION("copy assignment") {
+    SECTION("copy assign empty storage") {
+      const Storage s1{};
+      Storage s2{};
+      CHECK(s1.data() == nullptr);
+      CHECK(s2.data() == nullptr);
+      s2 = s1;
+      CHECK(s1.data() == nullptr);
+      CHECK(s2.data() == nullptr);
+    }
+    SECTION("copy assign non empty storage") {
+      int count = 0;
+      const Storage s1{Track(count)};
+      Storage s2{};
+      CHECK(count == 1);
+      CHECK(s1.data() != nullptr);
+      CHECK(s2.data() == nullptr);
+      s2 = s1; // TODO: FIX
+      CHECK(count == 2);
+      CHECK(s1.data() != nullptr);
+      CHECK(s2.data() != nullptr);
+    }
   }
-  CHECK(count == 1);
-  SECTION("emplace and reset") {
-    s.template emplace<Track>(Track{count});
-    CHECK(count == 2);
-    CHECK(s.data() != nullptr);
-    s.reset();
-    CHECK(count == 1);
-    CHECK(s.data() == nullptr);
+  SECTION("move assignment") {
+    SECTION("move assign empty storage") {
+      Storage s1{};
+      Storage s2{};
+      CHECK(s1.data() == nullptr);
+      CHECK(s2.data() == nullptr);
+      s2 = std::move(s1);
+      CHECK(s1.data() == nullptr);
+      CHECK(s2.data() == nullptr);
+    }
+    SECTION("move assign non empty storage") {
+      int count = 0;
+      Storage s1{Track(count)};
+      Storage s2{};
+      CHECK(count == 1);
+      CHECK(s1.data() != nullptr);
+      CHECK(s2.data() == nullptr);
+      s2 = std::move(s1);
+      CHECK(count == 1);
+      CHECK(s1.data() == nullptr);
+      CHECK(s2.data() != nullptr);
+    }
   }
-  CHECK(count == 1);
-  SECTION("ctor and dtor") {
-    poly::local_move_only_storage<S, A> s1(Track{count});
-    CHECK(count == 2);
-    CHECK(s1.data() != nullptr);
-    poly::local_move_only_storage<S, A> s2(Track{count});
-    CHECK(count == 3);
-    CHECK(s2.data() != nullptr);
+  SECTION("emplace") {
+    SECTION("emplace into empty storage") {
+      int count = 0;
+      Storage s{};
+      CHECK(count == 0);
+      s.template emplace<Track>(count);
+      CHECK(count == 1);
+      CHECK(s.data() != nullptr);
+    }
+    SECTION("emplace into non empty storage") {
+      int count = 0;
+      int count2 = 0;
+      Storage s{Track{count2}};
+      CHECK(s.data() != nullptr);
+      CHECK(count == 0);
+      CHECK(count2 == 1);
+      s.template emplace<Track>(count);
+      CHECK(count == 1);
+      CHECK(count2 == 0);
+      CHECK(s.data() != nullptr);
+    }
   }
-  CHECK(count == 1);
-  SECTION("local_move_only_storage operator=(local_move_only_storage&&)") {
-    s.template emplace<Track>(count);
-    poly::local_move_only_storage<S, A> s1(Track{count});
-    CHECK(count == 3);
-    CHECK(s.data() != nullptr);
-    CHECK(s1.data() != nullptr);
-    s = poly::local_move_only_storage<S, A>(Track{count});
-    CHECK(count == 3);
-    CHECK(s.data() != nullptr);
-    s = std::move(s1);
-    CHECK(count == 3);
-    CHECK(s.data() != nullptr);
+  SECTION("dtor") {
+    int count = 0;
+    {
+      CHECK(count == 0);
+      Storage s1{Track{count}};
+      CHECK(count == 1);
+    }
+    CHECK(count == 0);
   }
 }
