@@ -24,20 +24,34 @@ std::atomic<int> tracker::alive = 0;
 
 struct Track {
 
-  Track(int &c) : count(&c) { ++*count; }
-  Track(const Track &other) : count(other.count) { ++*count; }
-  Track(Track &&o) : count(o.count) { ++*count; }
+  Track(int &c) : count(&c) {
+    assert(count != nullptr);
+    ++(*count);
+  }
+  Track(const Track &o) : count(o.count) {
+    assert(count != nullptr);
+    ++(*count);
+  }
+  Track(Track &&o) : count(o.count) {
+    ++(*count);
+    assert(count != nullptr);
+  }
   Track &operator=(const Track &o) {
     count = o.count;
-    ++*count;
+    assert(count != nullptr);
+    ++(*count);
     return *this;
   }
   Track &operator=(Track &&o) {
     count = o.count;
-    ++*count;
+    assert(count != nullptr);
+    ++(*count);
     return *this;
   }
-  ~Track() { --*count; }
+  ~Track() {
+    assert(count != nullptr);
+    --(*count);
+  }
   int *count;
 };
 TEST_CASE("ref_storage", "[storage]") {
@@ -53,7 +67,7 @@ TEST_CASE("ref_storage", "[storage]") {
   CHECK(tracker::alive == 1);
 }
 TEMPLATE_TEST_CASE_SIG("local_storage", "[storage]",
-                       ((size_t S, size_t A), S, A), (32, 8), (32, 8)) {
+                       ((size_t S, size_t A), S, A), (32, 8), (8, 8)) {
   int count = 0;
   Track t(count);
   poly::local_storage<S, A> s;
@@ -65,7 +79,7 @@ TEMPLATE_TEST_CASE_SIG("local_storage", "[storage]",
   }
   CHECK(count == 1);
   SECTION("emplace and reset") {
-    s.template emplace<Track>(count);
+    s.template emplace<Track>(Track{count});
     CHECK(count == 2);
     CHECK(s.data() != nullptr);
     s.reset();
@@ -74,7 +88,7 @@ TEMPLATE_TEST_CASE_SIG("local_storage", "[storage]",
   }
   CHECK(count == 1);
   SECTION("ctor and dtor") {
-    poly::local_storage<S, A> s1(t);
+    poly::local_storage<S, A> s1{Track{count}};
     CHECK(count == 2);
     CHECK(s1.data() != nullptr);
     poly::local_storage<S, A> s2(Track{count});
@@ -83,20 +97,21 @@ TEMPLATE_TEST_CASE_SIG("local_storage", "[storage]",
   }
   CHECK(count == 1);
   SECTION("local_storage operator=(const local_storage&)") {
-    poly::local_storage<S, A> s1(t);
-    CHECK(count == 2);
+    s.template emplace<Track>(count);
+    poly::local_storage<S, A> s1(Track{count});
+    CHECK(count == 3);
     CHECK(s.data() != nullptr);
     CHECK(s1.data() != nullptr);
     s = s1;
-    CHECK(count == 2);
+    CHECK(count == 3);
     CHECK(s.data() != nullptr);
-    s = poly::local_storage<S, A>(t);
-    CHECK(count == 2);
+    s = poly::local_storage<S, A>(Track{count});
+    CHECK(count == 3);
     CHECK(s.data() != nullptr);
   }
 }
 TEMPLATE_TEST_CASE_SIG("local_move_only_storage", "[storage]",
-                       ((size_t S, size_t A), S, A), (32, 8), (32, 8)) {
+                       ((size_t S, size_t A), S, A), (32, 8), (8, 8)) {
   int count = 0;
   Track t(count);
   poly::local_move_only_storage<S, A> s;
@@ -108,7 +123,7 @@ TEMPLATE_TEST_CASE_SIG("local_move_only_storage", "[storage]",
   }
   CHECK(count == 1);
   SECTION("emplace and reset") {
-    s.template emplace<Track>(count);
+    s.template emplace<Track>(Track{count});
     CHECK(count == 2);
     CHECK(s.data() != nullptr);
     s.reset();
@@ -117,7 +132,7 @@ TEMPLATE_TEST_CASE_SIG("local_move_only_storage", "[storage]",
   }
   CHECK(count == 1);
   SECTION("ctor and dtor") {
-    poly::local_move_only_storage<S, A> s1(t);
+    poly::local_move_only_storage<S, A> s1(Track{count});
     CHECK(count == 2);
     CHECK(s1.data() != nullptr);
     poly::local_move_only_storage<S, A> s2(Track{count});
@@ -125,16 +140,17 @@ TEMPLATE_TEST_CASE_SIG("local_move_only_storage", "[storage]",
     CHECK(s2.data() != nullptr);
   }
   CHECK(count == 1);
-  SECTION("local_storage operator=(const local_storage&)") {
-    poly::local_move_only_storage<S, A> s1(t);
-    CHECK(count == 2);
+  SECTION("local_move_only_storage operator=(local_move_only_storage&&)") {
+    s.template emplace<Track>(count);
+    poly::local_move_only_storage<S, A> s1(Track{count});
+    CHECK(count == 3);
     CHECK(s.data() != nullptr);
     CHECK(s1.data() != nullptr);
-    s = poly::local_move_only_storage<S, A>(t);
-    CHECK(count == 2);
+    s = poly::local_move_only_storage<S, A>(Track{count});
+    CHECK(count == 3);
     CHECK(s.data() != nullptr);
     s = std::move(s1);
-    CHECK(count == 2);
+    CHECK(count == 3);
     CHECK(s.data() != nullptr);
   }
 }

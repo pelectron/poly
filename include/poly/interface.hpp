@@ -119,27 +119,23 @@ private:
 };
 
 template <typename PropertySpecs, typename MethodSpecs, size_t Size,
-          size_t Alignment = alignof(std::max_align_t), bool Copyable = false>
-class Object : public InterfaceImpl<local_storage<Copyable, Size, Alignment>,
-                                    PropertySpecs, MethodSpecs> {
+          size_t Alignment = alignof(std::max_align_t)>
+class Object : public Interface<local_storage<Size, Alignment>, PropertySpecs,
+                                MethodSpecs> {
 public:
-  using Base = InterfaceImpl<local_storage<Copyable, Size, Alignment>,
-                             PropertySpecs, MethodSpecs>;
+  using Base =
+      Interface<local_storage<Size, Alignment>, PropertySpecs, MethodSpecs>;
   template <typename T,
             typename = std::enable_if_t<not std::is_same_v<T, Object>>>
-  Object(const T &t) : Base(t) {}
+  Object(T &&t) : Base(std::forward<T>(t)) {}
 
-  template <bool Enable = Copyable, std::enable_if_t<Enable>>
   Object(const Object &other) : Base(other) {}
 
   Object(Object &&) = default;
 
-  template <bool Enable = Copyable, std::enable_if_t<Enable>>
-  Object &operator=(const Object &other) {
-    *static_cast<Base *>(this) = static_cast<const Base &>(other);
-    return *this;
-  }
+  Object &operator=(const Object &other) = default;
   Object &operator=(Object &&) = default;
+
   template <typename T, typename = std::enable_if_t<
                             not std::is_same_v<Object, std::decay_t<T>>>>
   Object &operator=(T &&t) {
@@ -148,5 +144,28 @@ public:
   }
 };
 
+template <typename PropertySpecs, typename MethodSpecs, size_t Size,
+          size_t Alignment = alignof(std::max_align_t)>
+class MoveOnlyObject
+    : public Interface<local_move_only_storage<Size, Alignment>, PropertySpecs,
+                       MethodSpecs> {
+public:
+  using Base = Interface<local_move_only_storage<Size, Alignment>,
+                         PropertySpecs, MethodSpecs>;
+  template <typename T,
+            typename = std::enable_if_t<not std::is_same_v<T, MoveOnlyObject>>>
+  MoveOnlyObject(T &&t) : Base(std::forward<T>(t)) {}
+  MoveOnlyObject(MoveOnlyObject &&) = default;
+  MoveOnlyObject(const MoveOnlyObject &other) = delete;
+  MoveOnlyObject &operator=(const MoveOnlyObject &other) = delete;
+  MoveOnlyObject &operator=(MoveOnlyObject &&) = default;
+
+  template <typename T, typename = std::enable_if_t<not std::is_same_v<
+                            MoveOnlyObject, std::decay_t<T>>>>
+  MoveOnlyObject &operator=(T &&t) {
+    *static_cast<Base *>(this) = std::forward<T>(t);
+    return *this;
+  }
+};
 } // namespace poly
 #endif

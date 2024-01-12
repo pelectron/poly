@@ -148,6 +148,7 @@ public:
 private:
   void *ref_{nullptr};
 };
+
 static_assert(poly::traits::is_storage_v<ref_storage>);
 
 /// owing, copyable storage without dynamic allocation.
@@ -159,8 +160,7 @@ public:
   template <typename T, typename = std::enable_if_t<
                             not std::is_same_v<local_storage, std::decay_t<T>>>>
   constexpr local_storage(T &&t) noexcept(
-      std::is_nothrow_constructible_v<std::decay_t<T>, T &&>)
-      : vtbl_(&detail::resource_table_for<true, std::decay_t<T>>) {
+      std::is_nothrow_constructible_v<std::decay_t<T>, T &&>) {
     this->emplace<std::decay_t<T>>(std::forward<T>(t));
   }
 
@@ -259,8 +259,7 @@ public:
   template <typename T, typename = std::enable_if_t<not std::is_same_v<
                             local_move_only_storage, std::decay_t<T>>>>
   constexpr local_move_only_storage(T &&t) noexcept(
-      std::is_nothrow_constructible_v<std::decay_t<T>, T &&>)
-      : vtbl_(&detail::resource_table_for<false, std::decay_t<T>>) {
+      std::is_nothrow_constructible_v<std::decay_t<T>, T &&>) {
     this->template emplace<std::decay_t<T>>(std::forward<T>(t));
   }
 
@@ -282,7 +281,7 @@ public:
   }
 
 #if __cplusplus > 201703L
-  constexpr ~local_storage() { reset(); }
+  constexpr ~local_move_only_storage() { reset(); }
 #else
   ~local_move_only_storage() { reset(); }
 #endif
@@ -329,7 +328,87 @@ private:
 template <std::size_t Size, std::size_t Alignment = alignof(std::max_align_t)>
 class sbo_storage {
 public:
+  sbo_storage() = default;
+  sbo_storage(ref_storage) = delete;
+  sbo_storage(const sbo_storage &other) = delete;
+  sbo_storage &operator=(const sbo_storage &other) = delete;
+
+  template <typename T, typename = std::enable_if_t<
+                            not std::is_same_v<sbo_storage, std::decay_t<T>>>>
+  constexpr sbo_storage(T &&t) noexcept(
+      std::is_nothrow_constructible_v<std::decay_t<T>, T &&>) {
+    this->template emplace<std::decay_t<T>>(std::forward<T>(t));
+  }
+
+  constexpr sbo_storage(sbo_storage &&other) {
+    if (other.vtbl_) {
+      other.vtbl_->move(std::addressof(buffer_), std::addressof(other.buffer_));
+      vtbl_ = other.vtbl_;
+    }
+  }
+
+  constexpr sbo_storage &operator=(sbo_storage &&other) {
+    if (this == &other)
+      return *this;
+    reset();
+    if (other.vtbl_) {
+      other.vtbl_->move(std::addressof(buffer_), std::addressof(other.buffer_));
+      this->vtbl_ = other.vtbl_;
+    }
+    return *this;
+  }
+
+#if __cplusplus > 201703L
+  constexpr ~sbo_storage() { reset(); }
+#else
+  ~sbo_storage() { reset(); }
+#endif
+
+  template <typename T, typename... Args>
+  constexpr T &emplace(Args &&...args) noexcept(
+      std::is_nothrow_constructible_v<T, Args...>) {
+    static_assert(sizeof(T) <= Size, "T is to large to fit into local_storage");
+    static_assert(alignof(T) <= Alignment,
+                  "The alignment of T is to large to fit into local_storage");
+    reset();
+    T *ret = nullptr;
+    if constexpr (sizeof(T) <= Size and alignof(T) <= Alignment) {
+      ret = new (std::addressof(buffer.buffer)) T(std::forward<Args>(args)...);
+      vtbl_ = std::addressof(detail::sbo_table_for<true, T>);
+    } else {
+      ret = new T(std::forward<Args>(args)...);
+      buffer.heap = ret;
+    }
+    return *ret;
+  }
+
+  constexpr void reset() {
+    if (vtbl_) {
+      if (vtbl_->size > Size)
+        vtbl_->heap_destroy(std::addressof(buffer.heap));
+      else
+        vtbl_->destroy(std::addressof(buffer.buffer));
+      vtbl_ = nullptr;
+    }
+  }
+
+  constexpr void *data() noexcept { return vtbl_ ? this->as<void>() : nullptr; }
+
+  constexpr const void *data() const noexcept {
+    return vtbl_ ? this->as<const void>() : nullptr;
+  }
+
 private:
+  template <typename T> constexpr T *as() noexcept {
+    return static_cast<T *>(static_cast<void *>(std::addressof(buffer_)));
+  }
+
+  template <typename T> constexpr const T *as() const noexcept {
+    return static_cast<const T *>(
+        static_cast<const void *>(std::addressof(buffer_)));
+  }
+
+  const detail::sbo_resource_table<false> *vtbl_{nullptr};
   detail::raw_sbo_storage<Size, Alignment> buffer;
 };
 } // namespace poly
