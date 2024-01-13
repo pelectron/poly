@@ -264,15 +264,15 @@ using return_type_t = traits::return_type_t<MethodSpec>;
 /// get the name of a MethodSpec
 template <typename MethodSpec>
 using method_name_t = typename traits::func_first_arg<MethodSpec>::type;
-
+/// evaluates to true if MethodSpec if specified noexcept
 template <typename MethodSpec>
 inline constexpr bool is_nothrow_method_v =
     traits::func_is_noexcept<MethodSpec>::value;
-
+/// evaluates to true if MethodSpec if specified const
 template <typename MethodSpec>
 inline constexpr bool is_const_method_v =
     traits::func_is_const<MethodSpec>::value;
-
+/// evaluates to true if T satisfies the storage concept
 template <typename T>
 inline constexpr bool is_storage_v = traits::is_storage_v<T>;
 } // namespace poly
