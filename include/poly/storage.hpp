@@ -5,6 +5,7 @@
 #include <new>
 
 namespace poly {
+
 template <bool Copyable, std::size_t Size,
           std::size_t Alignment = alignof(std::max_align_t)>
 class basic_sbo_storage;
@@ -15,7 +16,7 @@ class basic_local_storage;
 template <std::size_t Size, std::size_t Alignment = alignof(std::max_align_t)>
 class local_storage;
 template <std::size_t Size, std::size_t Alignment = alignof(std::max_align_t)>
-class local_move_only_storage;
+class move_only_local_storage;
 
 namespace detail {
 template <typename T> inline constexpr bool is_local_storage = false;
@@ -27,24 +28,30 @@ template <std::size_t Size, std::size_t Alignment>
 inline constexpr bool is_local_storage<local_storage<Size, Alignment>> = true;
 template <std::size_t Size, std::size_t Alignment>
 inline constexpr bool
-    is_local_storage<local_move_only_storage<Size, Alignment>> = true;
+    is_local_storage<move_only_local_storage<Size, Alignment>> = true;
 
+/// table of function pointers for resource managment used by local_storage
 template <bool Copyable> struct resource_table {
   void (*copy)(void *dest, const void *src);
   void (*move)(void *dest, void *src);
   void (*destroy)(void *dest);
 };
 
+/// table of function pointers for resource managment used by
+/// local_move_only_storage
 template <> struct resource_table<false> {
   void (*move)(void *dest, void *src);
   void (*destroy)(void *dest);
 };
 
+/// raw storage type for small buffer optimized storage
+/// contains of either a pointer to the heap or the object in the local buffer
 template <std::size_t Size, std::size_t Align> union raw_sbo_storage {
   void *heap;
   alignas(Align) std::byte buffer[Size];
 };
 
+/// table of function pointers for resource managment used by sbo_storage
 template <bool Copyable> struct sbo_resource_table {
   void (*copy)(void *dest,
                const void *src); ///< copy from one local buffer to another
@@ -58,6 +65,9 @@ template <bool Copyable> struct sbo_resource_table {
   size_t size;
   size_t align;
 };
+
+/// table of function pointers for resource managment used by
+/// sbo_move_only_storage
 template <> struct sbo_resource_table<false> {
   void (*move)(void *dest,
                void *src); ///< move from one local buffer to another
@@ -68,68 +78,80 @@ template <> struct sbo_resource_table<false> {
   size_t size;
   size_t align;
 };
+
+/// returns a fully populated resource_table
 template <bool Copyable, typename T>
 constexpr resource_table<Copyable> get_local_resource_table() noexcept {
   if constexpr (Copyable) {
     return resource_table<true>{
-        .copy =
-            +[](void *dest, const void *src) {
-              new (dest) T(*static_cast<const T *>(src));
-            },
-        .move =
-            +[](void *dest, void *src) {
-              new (dest) T(std::move(*static_cast<T *>(src)));
-            },
-        .destroy = +[](void *src) { static_cast<T *>(src)->~T(); }};
+        //.copy =
+        +[](void *dest, const void *src) {
+          new (dest) T(*static_cast<const T *>(src));
+        },
+        //.move =
+        +[](void *dest, void *src) {
+          new (dest) T(std::move(*static_cast<T *>(src)));
+        },
+        //.destroy =
+        +[](void *src) { static_cast<T *>(src)->~T(); }};
   } else {
     return resource_table<false>{
-        .move =
-            +[](void *dest, void *src) {
-              new (dest) T(std::move(*static_cast<T *>(src)));
-            },
-        .destroy = +[](void *src) { static_cast<T *>(src)->~T(); }};
+        //.move =
+        +[](void *dest, void *src) {
+          new (dest) T(std::move(*static_cast<T *>(src)));
+        },
+        //.destroy =
+        +[](void *src) { static_cast<T *>(src)->~T(); }};
   }
 }
 
-template <typename T, size_t Size, size_t Align>
-inline constexpr bool fits_into_small_buffer_v =
-    sizeof(T) <= Size && alignof(T) <= Align;
-
+/// returns a fully populated sbo_resource_table
 template <bool Copyable, typename T>
 constexpr sbo_resource_table<Copyable> get_sbo_resource_table() noexcept {
   if constexpr (Copyable) {
     return sbo_resource_table<Copyable>{
-        .copy =
-            +[](void *dest, const void *src) {
-              new (dest) T(*static_cast<const T *>(src));
-            },
-        .heap_copy = +[](const void *src) -> void * {
+        // .copy =
+        +[](void *dest, const void *src) {
+          new (dest) T(*static_cast<const T *>(src));
+        },
+        // .heap_copy =
+        +[](const void *src) -> void * {
           return new T(*static_cast<const T *>(src));
         },
-        .move =
-            +[](void *dest, void *src) {
-              new (dest) T(std::move(*static_cast<T *>(src)));
-            },
-        .heap_move = +[](void *src) -> void * {
+        // .move =
+        +[](void *dest, void *src) {
+          new (dest) T(std::move(*static_cast<T *>(src)));
+        },
+        // .heap_move =
+        +[](void *src) -> void * {
           return new T(std::move(*static_cast<T *>(src)));
         },
-        .destroy = +[](void *src) { static_cast<T *>(src)->~T(); },
-        .heap_destroy = +[](void *src) { delete static_cast<T *>(src); },
-        .size = sizeof(T),
-        .align = alignof(T)};
+        // .destroy =
+        +[](void *src) { static_cast<T *>(src)->~T(); },
+        // .heap_destroy =
+        +[](void *src) { delete static_cast<T *>(src); },
+        // .size =
+        sizeof(T),
+        // .align =
+        alignof(T)};
   } else {
     return sbo_resource_table<Copyable>{
-        .move =
-            +[](void *dest, void *src) {
-              new (dest) T(std::move(*static_cast<T *>(src)));
-            },
-        .heap_move = +[](void *src) -> void * {
+        // .move =
+        +[](void *dest, void *src) {
+          new (dest) T(std::move(*static_cast<T *>(src)));
+        },
+        // .heap_move =
+        +[](void *src) -> void * {
           return new T(std::move(*static_cast<T *>(src)));
         },
-        .destroy = +[](void *src) { static_cast<T *>(src)->~T(); },
-        .heap_destroy = +[](void *src) { delete static_cast<T *>(src); },
-        .size = sizeof(T),
-        .align = alignof(T)};
+        // .destroy =
+        +[](void *src) { static_cast<T *>(src)->~T(); },
+        // .heap_destroy =
+        +[](void *src) { delete static_cast<T *>(src); },
+        // .size =
+        sizeof(T),
+        // .align =
+        alignof(T)};
   }
 }
 
@@ -143,7 +165,7 @@ inline constexpr sbo_resource_table<Copyable> sbo_table_for =
 } // namespace detail
 
 /// non owing storage. Only contains pointer to object emplaced.
-class ref_storage {
+class ref_storage final {
 public:
   template <typename T,
             typename = std::enable_if_t<not(poly::traits::is_storage_v<T>)>>
@@ -180,6 +202,14 @@ private:
 
 static_assert(poly::traits::is_storage_v<ref_storage>);
 
+/// local storage implementation.
+///
+/// Holds object emplaced in a buffer of Size bytes with an alignement of
+/// Alignment. Objects greater than Size or stricter alignment than Alignment
+/// cannot be emplaced.
+/// @tparam Copyable specify if the storage is copyable
+/// @tparam Size  size of the internal buffer in bytes
+/// @tparam Alignment alignment of internal buffer in bytes
 template <bool Copyable, std::size_t Size, std::size_t Alignment>
 class basic_local_storage {
 public:
@@ -265,14 +295,6 @@ public:
     return *ret;
   }
 
-  /// destroy the contained object
-  constexpr void reset() {
-    if (vtbl_) {
-      vtbl_->destroy(std::addressof(buffer_));
-      vtbl_ = nullptr;
-    }
-  }
-
   /// get pointer to contained object, or nullptr if no object is contained.
   constexpr void *data() noexcept { return vtbl_ ? this->as<void>() : nullptr; }
 
@@ -282,6 +304,14 @@ public:
   }
 
 private:
+  /// destroy the contained object
+  constexpr void reset() {
+    if (vtbl_) {
+      vtbl_->destroy(std::addressof(buffer_));
+      vtbl_ = nullptr;
+    }
+  }
+
   template <typename T> constexpr T *as() noexcept {
     return static_cast<T *>(static_cast<void *>(std::addressof(buffer_)));
   }
@@ -342,8 +372,14 @@ private:
 };
 
 /// owing, copyable storage without dynamic allocation.
+///
+/// Holds object emplaced in a buffer of Size bytes with an alignment of
+/// Alignment. Objects greater than Size or stricter alignment than Alignment
+/// cannot be emplaced.
+/// @tparam Size  size of the internal buffer in bytes
+/// @tparam Alignment alignment of internal buffer in bytes
 template <std::size_t Size, std::size_t Alignment>
-class local_storage : public basic_local_storage<true, Size, Alignment> {
+class local_storage final : public basic_local_storage<true, Size, Alignment> {
 public:
   using Base = basic_local_storage<true, Size, Alignment>;
 
@@ -377,8 +413,14 @@ public:
 };
 
 /// owing, non copyable storage without dynamic allocation.
+///
+/// Holds object emplaced in a buffer of Size bytes with an alignment of
+/// Alignment. Objects greater than Size or stricter alignment than Alignment
+/// cannot be emplaced.
+/// @tparam Size  size of the internal buffer in bytes
+/// @tparam Alignment alignment of internal buffer in bytes
 template <std::size_t Size, std::size_t Alignment>
-class local_move_only_storage
+class move_only_local_storage final
     : public basic_local_storage<false, Size, Alignment> {
 public:
   using Base = basic_local_storage<false, Size, Alignment>;
@@ -386,46 +428,52 @@ public:
   using Base::emplace;
 
   /// construct empty storage
-  constexpr local_move_only_storage() noexcept : Base() {}
+  constexpr move_only_local_storage() noexcept : Base() {}
 
   /// construct with a T
   template <typename T, typename = std::enable_if_t<
                             not(poly::traits::is_storage_v<std::decay_t<T>>)>>
-  local_move_only_storage(T &&t) noexcept(
+  move_only_local_storage(T &&t) noexcept(
       std::is_nothrow_move_constructible_v<std::decay_t<T>>)
       : Base(std::move(t)) {}
 
   /// move ctor
-  local_move_only_storage(local_move_only_storage &&s) : Base(std::move(s)) {}
+  move_only_local_storage(move_only_local_storage &&s) : Base(std::move(s)) {}
 
   /// deleted copy ctor
-  local_move_only_storage(const local_move_only_storage &s) = delete;
+  move_only_local_storage(const move_only_local_storage &s) = delete;
 
   /// move assignment
-  local_move_only_storage &operator=(local_move_only_storage &&s) {
+  move_only_local_storage &operator=(move_only_local_storage &&s) {
     Base::operator=(std::move(s));
     return *this;
   }
 
   /// deleted copy assignment
-  local_move_only_storage &operator=(const local_move_only_storage &s) = delete;
+  move_only_local_storage &operator=(const move_only_local_storage &s) = delete;
 };
 
 static_assert(poly::traits::is_storage_v<local_storage<32, 8>>);
 static_assert(poly::traits::is_storage_v<local_storage<64, 4>>);
-static_assert(poly::traits::is_storage_v<local_move_only_storage<32, 8>>);
-static_assert(poly::traits::is_storage_v<local_move_only_storage<64, 4>>);
+static_assert(poly::traits::is_storage_v<move_only_local_storage<32, 8>>);
+static_assert(poly::traits::is_storage_v<move_only_local_storage<64, 4>>);
 
 static_assert(std::is_copy_constructible_v<local_storage<32, 8>>);
 static_assert(std::is_copy_assignable_v<local_storage<32, 8>>);
 static_assert(std::is_move_constructible_v<local_storage<32, 8>>);
 static_assert(std::is_move_assignable_v<local_storage<32, 8>>);
 
-static_assert(not std::is_copy_constructible_v<local_move_only_storage<32, 8>>);
-static_assert(not std::is_copy_assignable_v<local_move_only_storage<32, 8>>);
-static_assert(std::is_move_constructible_v<local_move_only_storage<32, 8>>);
-static_assert(std::is_move_assignable_v<local_move_only_storage<32, 8>>);
+static_assert(not std::is_copy_constructible_v<move_only_local_storage<32, 8>>);
+static_assert(not std::is_copy_assignable_v<move_only_local_storage<32, 8>>);
+static_assert(std::is_move_constructible_v<move_only_local_storage<32, 8>>);
+static_assert(std::is_move_assignable_v<move_only_local_storage<32, 8>>);
 
+/// storage with small buffer optimization implementation. Emplaced objects are
+/// allocated within a buffer of Size with alignment Alignment if the object
+/// satisfies these constraints, else it is heap allocated.
+/// @tparam Copyable specify if the storage is copyable
+/// @tparam Size  size of the internal buffer in bytes
+/// @tparam Alignment alignment of internal buffer in bytes
 template <bool Copyable, std::size_t Size, std::size_t Alignment>
 class basic_sbo_storage {
 public:
@@ -509,6 +557,15 @@ public:
     return *ret;
   }
 
+  constexpr void *data() noexcept {
+    return this->contains_value() ? this->as<void>() : nullptr;
+  }
+
+  constexpr const void *data() const noexcept {
+    return this->contains_value() ? this->as<const void>() : nullptr;
+  }
+
+private:
   constexpr void reset() {
     if (not this->contains_value())
       return;
@@ -520,15 +577,6 @@ public:
     vtbl_ = nullptr;
   }
 
-  constexpr void *data() noexcept {
-    return this->contains_value() ? this->as<void>() : nullptr;
-  }
-
-  constexpr const void *data() const noexcept {
-    return this->contains_value() ? this->as<const void>() : nullptr;
-  }
-
-private:
   template <size_t S, size_t A>
   constexpr basic_sbo_storage &move(basic_sbo_storage<Copyable, S, A> &&other) {
     if constexpr (S == Size and A == Alignment) {
@@ -644,8 +692,15 @@ private:
   detail::raw_sbo_storage<Size, Alignment> buffer;
 };
 
+/// Copyable storage with small buffer optimization.
+///
+/// Emplaced objects are allocated within a buffer of Size with alignment
+/// Alignment if the object satisfies these constraints, else it is heap
+/// allocated.
+/// @tparam Size  size of the internal buffer in bytes
+/// @tparam Alignment alignment of internal buffer in bytes
 template <std::size_t Size, std::size_t Alignment>
-class sbo_storage : public basic_sbo_storage<true, Size, Alignment> {
+class sbo_storage final : public basic_sbo_storage<true, Size, Alignment> {
 public:
   using Base = basic_sbo_storage<true, Size, Alignment>;
   using Base::data;
@@ -684,60 +739,68 @@ public:
   }
 };
 
+/// Move only storage with small buffer optimization.
+///
+/// Emplaced objects are allocated within a buffer of Size with alignment
+/// Alignment if the object satisfies these constraints, else it is heap
+/// allocated.
+/// @tparam Size  size of the internal buffer in bytes
+/// @tparam Alignment alignment of internal buffer in bytes
 template <std::size_t Size, std::size_t Alignment>
-class sbo_move_only_storage : public basic_sbo_storage<false, Size, Alignment> {
+class move_only_sbo_storage final
+    : public basic_sbo_storage<false, Size, Alignment> {
 public:
   using Base = basic_sbo_storage<false, Size, Alignment>;
   using Base::data;
   using Base::emplace;
   /// construct empty storage
-  constexpr sbo_move_only_storage() noexcept : Base() {}
+  constexpr move_only_sbo_storage() noexcept : Base() {}
 
   /// construct with a T
   template <typename T, typename = std::enable_if_t<
                             not(poly::traits::is_storage_v<std::decay_t<T>>)>>
-  constexpr sbo_move_only_storage(T &&t) noexcept(
+  constexpr move_only_sbo_storage(T &&t) noexcept(
       std::is_nothrow_move_constructible_v<std::decay_t<T>>)
       : Base(std::move(t)) {}
 
   /// move ctor
-  constexpr sbo_move_only_storage(sbo_move_only_storage &&s)
+  constexpr move_only_sbo_storage(move_only_sbo_storage &&s)
       : Base(std::move(s)) {}
   template <size_t S, size_t A>
-  constexpr sbo_move_only_storage(sbo_move_only_storage<S, A> &&s)
+  constexpr move_only_sbo_storage(move_only_sbo_storage<S, A> &&s)
       : Base(std::move(s)) {}
 
   /// deleted copy ctor
-  sbo_move_only_storage(const sbo_move_only_storage &s) = delete;
+  move_only_sbo_storage(const move_only_sbo_storage &s) = delete;
 
   /// move assignment
-  constexpr sbo_move_only_storage &operator=(sbo_move_only_storage &&s) {
+  constexpr move_only_sbo_storage &operator=(move_only_sbo_storage &&s) {
     Base::operator=(std::move(s));
     return *this;
   }
   template <size_t S, size_t A>
-  constexpr sbo_move_only_storage &operator=(sbo_move_only_storage<S, A> &&s) {
+  constexpr move_only_sbo_storage &operator=(move_only_sbo_storage<S, A> &&s) {
     Base::operator=(std::move(s));
     return *this;
   }
 
   /// deleted copy assignment
-  sbo_move_only_storage &operator=(const sbo_move_only_storage &s) = delete;
+  move_only_sbo_storage &operator=(const move_only_sbo_storage &s) = delete;
 };
 
 static_assert(poly::traits::is_storage_v<sbo_storage<32, 8>>);
 static_assert(poly::traits::is_storage_v<sbo_storage<64, 4>>);
-static_assert(poly::traits::is_storage_v<sbo_move_only_storage<32, 8>>);
-static_assert(poly::traits::is_storage_v<sbo_move_only_storage<64, 4>>);
+static_assert(poly::traits::is_storage_v<move_only_sbo_storage<32, 8>>);
+static_assert(poly::traits::is_storage_v<move_only_sbo_storage<64, 4>>);
 
 static_assert(std::is_copy_constructible_v<sbo_storage<32, 8>>);
 static_assert(std::is_copy_assignable_v<sbo_storage<32, 8>>);
 static_assert(std::is_move_constructible_v<sbo_storage<32, 8>>);
 static_assert(std::is_move_assignable_v<sbo_storage<32, 8>>);
 
-static_assert(not std::is_copy_constructible_v<sbo_move_only_storage<32, 8>>);
-static_assert(not std::is_copy_assignable_v<sbo_move_only_storage<32, 8>>);
-static_assert(std::is_move_constructible_v<sbo_move_only_storage<32, 8>>);
-static_assert(std::is_move_assignable_v<sbo_move_only_storage<32, 8>>);
+static_assert(not std::is_copy_constructible_v<move_only_sbo_storage<32, 8>>);
+static_assert(not std::is_copy_assignable_v<move_only_sbo_storage<32, 8>>);
+static_assert(std::is_move_constructible_v<move_only_sbo_storage<32, 8>>);
+static_assert(std::is_move_assignable_v<move_only_sbo_storage<32, 8>>);
 } // namespace poly
 #endif

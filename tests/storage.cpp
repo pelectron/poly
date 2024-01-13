@@ -175,8 +175,8 @@ TEMPLATE_TEST_CASE("generic copyable storage test", "[storage]",
 ///   - destructor
 TEMPLATE_TEST_CASE("generic moveable storage test", "[storage]",
                    (poly::local_storage<32, 8>), (poly::sbo_storage<32, 8>),
-                   (poly::local_move_only_storage<32, 8>),
-                   (poly::sbo_move_only_storage<32, 8>)) {
+                   (poly::move_only_local_storage<32, 8>),
+                   (poly::move_only_sbo_storage<32, 8>)) {
   using Storage = TestType;
 
   SECTION("default constructed storages are empty") {
@@ -293,7 +293,7 @@ TEMPLATE_TEST_CASE("generic moveable storage test", "[storage]",
 ///   - dtor
 TEMPLATE_TEST_CASE("moveable sbo storage test", "[storage]",
                    (poly::sbo_storage<32, 8>),
-                   (poly::sbo_move_only_storage<32, 8>)) {
+                   (poly::move_only_sbo_storage<32, 8>)) {
 
   using Storage = TestType;
   SECTION("ctor from T") {
@@ -705,9 +705,9 @@ TEMPLATE_TEST_CASE("copy sbo storage of different sizes", "[storage]",
 /// - move ctor for different sizes
 /// - move assignment for different sizes
 TEMPLATE_TEST_CASE("move sbo storage of different sizes", "[storage]",
-                   (poly::sbo_move_only_storage<32, 8>),
-                   (poly::sbo_move_only_storage<16, 8>)) {
-  using BigStorage = poly::sbo_move_only_storage<128, 8>;
+                   (poly::move_only_sbo_storage<32, 8>),
+                   (poly::move_only_sbo_storage<16, 8>)) {
+  using BigStorage = poly::move_only_sbo_storage<128, 8>;
   using SmallStorage = TestType;
 
   SECTION("move big into small storage") {

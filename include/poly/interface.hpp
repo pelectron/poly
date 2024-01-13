@@ -132,7 +132,7 @@ public:
     ptable_->set(PropertyName{}, storage_.data(), value);
   }
 
-protected:
+private:
   const detail::VTable<MethodSpecs...> *vtable_;
   const detail::PTable<PropertySpecs...> *ptable_;
   StorageType storage_;
@@ -161,10 +161,10 @@ public:
 template <typename PropertySpecs, typename MethodSpecs, size_t Size,
           size_t Alignment>
 class MoveOnlyObject
-    : public basic_interface<local_move_only_storage<Size, Alignment>,
+    : public basic_interface<move_only_local_storage<Size, Alignment>,
                              PropertySpecs, MethodSpecs> {
 public:
-  using Base = basic_interface<local_move_only_storage<Size, Alignment>,
+  using Base = basic_interface<move_only_local_storage<Size, Alignment>,
                                PropertySpecs, MethodSpecs>;
   using Base::operator=;
   template <typename T, typename = std::enable_if_t<
@@ -196,10 +196,10 @@ public:
 template <typename PropertySpecs, typename MethodSpecs, size_t Size,
           size_t Alignment>
 class SboMoveOnlyObject
-    : public basic_interface<sbo_move_only_storage<Size, Alignment>,
+    : public basic_interface<move_only_sbo_storage<Size, Alignment>,
                              PropertySpecs, MethodSpecs> {
 public:
-  using Base = basic_interface<sbo_move_only_storage<Size, Alignment>,
+  using Base = basic_interface<move_only_sbo_storage<Size, Alignment>,
                                PropertySpecs, MethodSpecs>;
   using Base::operator=;
   template <typename T, typename = std::enable_if_t<
