@@ -86,11 +86,11 @@ constexpr resource_table<Copyable> get_local_resource_table() noexcept {
     return resource_table<true>{
         //.copy =
         +[](void *dest, const void *src) {
-          new (dest) T(*static_cast<const T *>(src));
+          ::new (dest) T(*static_cast<const T *>(src));
         },
         //.move =
         +[](void *dest, void *src) {
-          new (dest) T(std::move(*static_cast<T *>(src)));
+          ::new (dest) T(std::move(*static_cast<T *>(src)));
         },
         //.destroy =
         +[](void *src) { static_cast<T *>(src)->~T(); }};
@@ -98,7 +98,7 @@ constexpr resource_table<Copyable> get_local_resource_table() noexcept {
     return resource_table<false>{
         //.move =
         +[](void *dest, void *src) {
-          new (dest) T(std::move(*static_cast<T *>(src)));
+          ::new (dest) T(std::move(*static_cast<T *>(src)));
         },
         //.destroy =
         +[](void *src) { static_cast<T *>(src)->~T(); }};
@@ -112,24 +112,24 @@ constexpr sbo_resource_table<Copyable> get_sbo_resource_table() noexcept {
     return sbo_resource_table<Copyable>{
         // .copy =
         +[](void *dest, const void *src) {
-          new (dest) T(*static_cast<const T *>(src));
+          ::new (dest) T(*static_cast<const T *>(src));
         },
         // .heap_copy =
         +[](const void *src) -> void * {
-          return new T(*static_cast<const T *>(src));
+          return ::new T(*static_cast<const T *>(src));
         },
         // .move =
         +[](void *dest, void *src) {
-          new (dest) T(std::move(*static_cast<T *>(src)));
+          ::new (dest) T(std::move(*static_cast<T *>(src)));
         },
         // .heap_move =
         +[](void *src) -> void * {
-          return new T(std::move(*static_cast<T *>(src)));
+          return ::new T(std::move(*static_cast<T *>(src)));
         },
         // .destroy =
         +[](void *src) { static_cast<T *>(src)->~T(); },
         // .heap_destroy =
-        +[](void *src) { delete static_cast<T *>(src); },
+        +[](void *src) { ::delete static_cast<T *>(src); },
         // .size =
         sizeof(T),
         // .align =
@@ -138,16 +138,16 @@ constexpr sbo_resource_table<Copyable> get_sbo_resource_table() noexcept {
     return sbo_resource_table<Copyable>{
         // .move =
         +[](void *dest, void *src) {
-          new (dest) T(std::move(*static_cast<T *>(src)));
+          ::new (dest) T(std::move(*static_cast<T *>(src)));
         },
         // .heap_move =
         +[](void *src) -> void * {
-          return new T(std::move(*static_cast<T *>(src)));
+          return ::new T(std::move(*static_cast<T *>(src)));
         },
         // .destroy =
         +[](void *src) { static_cast<T *>(src)->~T(); },
         // .heap_destroy =
-        +[](void *src) { delete static_cast<T *>(src); },
+        +[](void *src) { ::delete static_cast<T *>(src); },
         // .size =
         sizeof(T),
         // .align =
@@ -230,14 +230,16 @@ public:
   }
 
   /// copy ctor
-  template <std::size_t S, std::size_t A, bool C = Copyable,
-            typename = std::enable_if_t<C>>
+  template <std::size_t S, std::size_t A, bool C = Copyable>
   constexpr basic_local_storage(const basic_local_storage<C, S, A> &other) {
+    static_assert(Copyable);
     this->copy(other);
   }
-
   /// copy ctor
   constexpr basic_local_storage(const basic_local_storage &other) {
+    /// this definition is needed, else the compiler produces a memcpy for the
+    /// copy ctor instead of choosing the template version
+    static_assert(Copyable);
     this->copy(other);
   }
 
@@ -248,15 +250,16 @@ public:
   }
 
   /// copy assignment
-  template <std::size_t S, std::size_t A, bool C = Copyable,
-            typename = std::enable_if_t<C>>
+  template <std::size_t S, std::size_t A>
   constexpr basic_local_storage &
-  operator=(const basic_local_storage<C, S, A> &other) {
+  operator=(const basic_local_storage<Copyable, S, A> &other) {
+    static_assert(Copyable);
     return this->copy(other);
   }
 
   /// copy assignment
   constexpr basic_local_storage &operator=(const basic_local_storage &other) {
+    static_assert(Copyable);
     return this->copy(other);
   }
 
@@ -271,10 +274,10 @@ public:
     return this->move(std::move(other));
   }
 
-  /// move assignment
-  constexpr basic_local_storage &operator=(basic_local_storage &&other) {
-    return this->move(std::move(other));
-  }
+  // /// move assignment
+  // constexpr basic_local_storage &operator=(basic_local_storage &&other) {
+  //   return this->move(std::move(other));
+  // }
 
 #if __cplusplus > 201703L
   constexpr ~basic_local_storage() { reset(); }
@@ -290,7 +293,7 @@ public:
     static_assert(alignof(T) <= Alignment,
                   "The alignment of T is to large to fit into this");
     reset();
-    T *ret = new (std::addressof(buffer_)) T(std::forward<Args>(args)...);
+    T *ret = ::new (std::addressof(buffer_)) T(std::forward<Args>(args)...);
     vtbl_ = std::addressof(detail::resource_table_for<Copyable, T>);
     return *ret;
   }
@@ -351,18 +354,17 @@ private:
                   "The local_storage to copy from is too big to fit into this");
     static_assert(A <= Alignment, "The alignemnt of the local_storage to copy "
                                   "from is too big to fit into this");
-    if constexpr (Copyable) {
-      if constexpr (S == Size and A == Alignment) {
-        // only check for this if other is of same type
-        if (this == &other)
-          return *this;
-      }
-      reset();
-      if (other.vtbl_ == nullptr)
+    static_assert(Copyable);
+    if constexpr (S == Size and A == Alignment) {
+      // only check for this if other is of same type
+      if (this == &other)
         return *this;
-      other.vtbl_->copy(std::addressof(buffer_), std::addressof(other.buffer_));
-      vtbl_ = other.vtbl_;
     }
+    reset();
+    if (other.vtbl_ == nullptr)
+      return *this;
+    other.vtbl_->copy(std::addressof(buffer_), std::addressof(other.buffer_));
+    vtbl_ = other.vtbl_;
     return *this;
   }
 
@@ -397,15 +399,23 @@ public:
   local_storage(local_storage &&s) : Base(std::move(s)) {}
 
   /// copy ctor
+  template <std::size_t S, std::size_t A>
+  local_storage(const local_storage<S, A> &s) : Base(s) {}
   local_storage(const local_storage &s) : Base(s) {}
 
-  /// move assignemnt
-  local_storage &operator=(local_storage &&s) {
+  /// move assignment
+  template <std::size_t S, std::size_t A>
+  local_storage &operator=(local_storage<S, A> &&s) {
     Base::operator=(std::move(s));
     return *this;
   }
 
-  /// copy assignemnt
+  /// copy assignment
+  template <std::size_t S, std::size_t A>
+  local_storage &operator=(const local_storage<A, S> &s) {
+    Base::operator=(s);
+    return *this;
+  }
   local_storage &operator=(const local_storage &s) {
     Base::operator=(s);
     return *this;
@@ -438,13 +448,15 @@ public:
       : Base(std::move(t)) {}
 
   /// move ctor
-  move_only_local_storage(move_only_local_storage &&s) : Base(std::move(s)) {}
+  template<size_t S,size_t A>
+  move_only_local_storage(move_only_local_storage<S,A> &&s) : Base(std::move(s)) {}
 
   /// deleted copy ctor
   move_only_local_storage(const move_only_local_storage &s) = delete;
 
   /// move assignment
-  move_only_local_storage &operator=(move_only_local_storage &&s) {
+  template<size_t S,size_t A>
+  move_only_local_storage &operator=(move_only_local_storage<S,A> &&s) {
     Base::operator=(std::move(s));
     return *this;
   }
@@ -493,11 +505,15 @@ public:
   /// copy ctor for copyable sbo storage
   template <size_t S, size_t A>
   constexpr basic_sbo_storage(const basic_sbo_storage<Copyable, S, A> &other) {
+    static_assert(Copyable);
     this->copy(other);
   }
 
   /// copy ctor for copyable sbo storage
   constexpr basic_sbo_storage(const basic_sbo_storage &other) {
+    /// this definition is needed, else the compiler produces a memcpy for the
+    /// copy ctor instead of choosing the template version
+    static_assert(Copyable);
     this->copy(other);
   }
 
@@ -528,11 +544,13 @@ public:
   template <size_t S, size_t A>
   constexpr basic_sbo_storage &
   operator=(const basic_sbo_storage<Copyable, S, A> &other) {
+    static_assert(Copyable);
     return this->copy(other);
   }
 
   /// copy assignment
   constexpr basic_sbo_storage &operator=(const basic_sbo_storage &other) {
+    static_assert(Copyable);
     return this->copy(other);
   }
 
@@ -548,9 +566,10 @@ public:
     reset();
     T *ret = nullptr;
     if constexpr (sizeof(T) <= Size and alignof(T) <= Alignment) {
-      ret = new (std::addressof(buffer.buffer)) T(std::forward<Args>(args)...);
+      ret =
+          ::new (std::addressof(buffer.buffer)) T(std::forward<Args>(args)...);
     } else {
-      ret = new T(std::forward<Args>(args)...);
+      ret = ::new T(std::forward<Args>(args)...);
       buffer.heap = ret;
     }
     vtbl_ = std::addressof(detail::sbo_table_for<Copyable, T>);
@@ -583,12 +602,12 @@ private:
       if (&other == this)
         return *this;
     }
+    reset();
     if (not other.contains_value()) {
       // nothing to do
       return *this;
     }
 
-    reset();
 
     if (other.vtbl_->size <= Size and other.vtbl_->align <= Alignment) {
       // others object fits into this small buffer
@@ -626,48 +645,45 @@ private:
   template <size_t S, size_t A>
   constexpr basic_sbo_storage &
   copy(const basic_sbo_storage<Copyable, S, A> &other) {
-    if constexpr (Copyable) {
-      if constexpr (S == Size and A == Alignment) {
-        if (&other == this)
-          return *this;
-      }
-      if (not other.contains_value()) {
-        // nothing to do
+    static_assert(Copyable);
+    if constexpr (S == Size and A == Alignment) {
+      if (&other == this)
         return *this;
-      }
-
-      reset();
-      if (other.vtbl_->size <= Size and other.vtbl_->align <= Alignment) {
-        // others object fits into this small buffer
-        if (other.is_heap_allocated()) {
-          // copy others heap object into this buffer
-          other.vtbl_->copy(std::addressof(buffer.buffer), other.buffer.heap);
-        } else {
-          // copy others buffer object into this buffer
-          other.vtbl_->copy(std::addressof(buffer.buffer),
-                            std::addressof(other.buffer.buffer));
-        }
-      } else {
-        // others object does not fit into small buffer
-        if (other.is_heap_allocated()) {
-          // heap copy
-          buffer.heap = other.vtbl_->heap_copy(other.buffer.heap);
-        } else {
-          // heap copy
-          buffer.heap = other.vtbl_->heap_copy(std::addressof(other.buffer));
-        }
-      }
-      vtbl_ = other.vtbl_;
-      return *this;
-    } else {
+    }
+    reset();
+    if (not other.contains_value()) {
+      // nothing to do
       return *this;
     }
+
+    if (other.vtbl_->size <= Size and other.vtbl_->align <= Alignment) {
+      // others object fits into this small buffer
+      if (other.is_heap_allocated()) {
+        // copy others heap object into this buffer
+        other.vtbl_->copy(std::addressof(buffer.buffer), other.buffer.heap);
+      } else {
+        // copy others buffer object into this buffer
+        other.vtbl_->copy(std::addressof(buffer.buffer),
+                          std::addressof(other.buffer.buffer));
+      }
+    } else {
+      // others object does not fit into small buffer
+      if (other.is_heap_allocated()) {
+        // heap copy
+        buffer.heap = other.vtbl_->heap_copy(other.buffer.heap);
+      } else {
+        // heap copy
+        buffer.heap = other.vtbl_->heap_copy(std::addressof(other.buffer));
+      }
+    }
+    vtbl_ = other.vtbl_;
+    return *this;
   }
 
   constexpr bool contains_value() const noexcept { return vtbl_ != nullptr; }
 
   constexpr bool is_heap_allocated() const noexcept {
-    if (not vtbl_)
+    if (not contains_value())
       return false;
     if (vtbl_->size > Size or vtbl_->align > Alignment)
       return true;
@@ -717,7 +733,6 @@ public:
       : Base(std::forward<T>(t)) {}
 
   /// move ctor
-  sbo_storage(sbo_storage &&s) : Base(std::move(s)) {}
   template <size_t S, size_t A>
   constexpr sbo_storage(sbo_storage<S, A> &&s) : Base(std::move(s)) {}
 
@@ -727,13 +742,15 @@ public:
   constexpr sbo_storage(const sbo_storage<S, A> &s) : Base(s) {}
 
   /// move assignemnt
-  constexpr sbo_storage &operator=(sbo_storage &&s) {
+  template <size_t S, size_t A>
+  constexpr sbo_storage &operator=(sbo_storage<S, A> &&s) {
     Base::operator=(std::move(s));
     return *this;
   }
 
   /// copy assignemnt
-  constexpr sbo_storage &operator=(const sbo_storage &s) {
+  template <size_t S, size_t A>
+  constexpr sbo_storage &operator=(const sbo_storage<S, A> &s) {
     Base::operator=(s);
     return *this;
   }
@@ -764,8 +781,6 @@ public:
       : Base(std::move(t)) {}
 
   /// move ctor
-  constexpr move_only_sbo_storage(move_only_sbo_storage &&s)
-      : Base(std::move(s)) {}
   template <size_t S, size_t A>
   constexpr move_only_sbo_storage(move_only_sbo_storage<S, A> &&s)
       : Base(std::move(s)) {}
@@ -774,10 +789,10 @@ public:
   move_only_sbo_storage(const move_only_sbo_storage &s) = delete;
 
   /// move assignment
-  constexpr move_only_sbo_storage &operator=(move_only_sbo_storage &&s) {
-    Base::operator=(std::move(s));
-    return *this;
-  }
+  // constexpr move_only_sbo_storage &operator=(move_only_sbo_storage &&s) {
+  //   Base::operator=(std::move(s));
+  //   return *this;
+  // }
   template <size_t S, size_t A>
   constexpr move_only_sbo_storage &operator=(move_only_sbo_storage<S, A> &&s) {
     Base::operator=(std::move(s));

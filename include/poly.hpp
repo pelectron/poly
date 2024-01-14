@@ -12,7 +12,7 @@
 
 
 
-#define METHODS(...) poly::traits::type_list<__VA_ARGS__>
-#define PROPERTIES(...) poly::traits::type_list<__VA_ARGS__>
+#define METHODS(...) poly::type_list<__VA_ARGS__>
+#define PROPERTIES(...) poly::type_list<__VA_ARGS__>
 
 #endif /* INC_PROPERTIES_HPP_ */

@@ -1,5 +1,6 @@
 #ifndef POLY_PTABLE_HPP
 #define POLY_PTABLE_HPP
+#include "poly/always_false.hpp"
 #include "poly/property.hpp"
 #include "poly/traits.hpp"
 
@@ -20,7 +21,7 @@ template <typename Name, typename Type> struct PTableEntry<const Name(Type)> {
         }) {}
 
   template <typename T> constexpr void set(Name, void *, const T &) const {
-    static_assert(poly::traits::always_false<T>,
+    static_assert(detail::always_false<T>,
                   "This property is not settable, i.e. defined as const.");
   }
 
@@ -45,7 +46,7 @@ struct PTableEntry<const Name(Type) noexcept> {
   template <typename T>
   constexpr void set(Name, void *, const T &) const noexcept {
     static_assert(
-        poly::traits::always_false<T>,
+        detail::always_false<T>,
         "This property is not settable, i.e. it is defined as const.");
   }
 

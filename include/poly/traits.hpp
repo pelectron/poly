@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <type_traits>
 #include <utility>
+#include "poly/type_list.hpp"
 
 #if __cplusplus > 201703L
 // include if c++ std > c++17
@@ -58,78 +59,6 @@ template <typename T> inline constexpr bool is_storage_v = is_storage<T>::value;
 template <typename T> struct Id {
   using type = T;
 };
-
-template <typename> inline constexpr bool always_false = false;
-
-/// type list
-template <typename...> struct type_list {};
-
-template <typename List, typename T> struct push_front;
-template <typename... Ts, typename T> struct push_front<type_list<Ts...>, T> {
-  using type = type_list<T, Ts...>;
-};
-/// push T to the front of the type_list List
-template <typename List, typename T>
-using push_front_t = typename push_front<List, T>::type;
-
-template <typename List, typename T> struct index_of;
-template <typename List, typename T, size_t N> struct index_of_impl;
-template <typename... Ts, typename T1, typename T, size_t N>
-struct index_of_impl<type_list<T1, Ts...>, T, N>
-    : index_of_impl<type_list<Ts...>, T, N + 1> {};
-template <typename... Ts, typename T, size_t N>
-struct index_of_impl<type_list<T, Ts...>, T, N> {
-  static constexpr size_t value = N;
-};
-template <typename T, size_t N> struct index_of_impl<type_list<>, T, N> {
-  static_assert(always_false<T>, "T not found in List");
-};
-template <typename... Ts, typename T>
-struct index_of<type_list<Ts...>, T> : index_of_impl<type_list<Ts...>, T, 0> {};
-
-/// get the position of T in the type_list List
-template <typename List, typename T>
-inline constexpr size_t index_of_v = index_of<List, T>::value;
-
-template <typename List, size_t N, size_t I> struct at_impl;
-
-template <typename... Ts, typename T1, size_t N, size_t I>
-struct at_impl<type_list<T1, Ts...>, N, I>
-    : at_impl<type_list<Ts...>, N + 1, I> {};
-
-template <typename... Ts, typename T1, size_t I>
-struct at_impl<type_list<T1, Ts...>, I, I> {
-  using type = T1;
-};
-
-template <typename List, size_t I> struct at : at_impl<List, 0, I> {};
-
-/// get the I-th type in the type_list List
-template <typename List, size_t I> using at_t = typename at<List, I>::type;
-
-template <typename InList, typename OutList, template <typename> typename Trait>
-struct filter_impl;
-
-template <typename T, typename... Us, template <typename> typename Trait>
-struct filter_impl<type_list<T>, type_list<Us...>, Trait> {
-  using type = std::conditional_t<Trait<T>::value, type_list<Us..., T>,
-                                  type_list<Us...>>;
-};
-
-template <typename T, typename... Ts, typename... Us,
-          template <typename> typename Trait>
-struct filter_impl<type_list<T, Ts...>, type_list<Us...>, Trait> {
-  using list = std::conditional_t<Trait<T>::value, type_list<Us..., T>,
-                                  type_list<Us...>>;
-  using type = typename filter_impl<type_list<Ts...>, list, Trait>::type;
-};
-
-template <typename List, template <typename> typename Trait>
-struct filter : filter_impl<List, type_list<>, Trait> {};
-
-/// filter list by predicate
-template <typename List, template <typename> typename Predicate>
-using filter_t = typename filter<List, Predicate>::type;
 
 // signature utils
 
@@ -218,7 +147,6 @@ struct is_method_spec<R(M, Args...) noexcept> : std::true_type {};
 template <typename R, typename M, typename... Args>
 struct is_method_spec<R(M, Args...) const noexcept> : std::true_type {};
 
-/// check if T is a valid MethodSpec
 template <typename T>
 inline constexpr bool is_method_spec_v = is_method_spec<T>::value;
 
@@ -232,7 +160,6 @@ struct is_property_spec<Name(Type) noexcept> : std::true_type {};
 template <typename Name, typename Type>
 struct is_property_spec<const Name(Type) noexcept> : std::true_type {};
 
-/// check if T is a valid PropertySpec
 template <typename T>
 inline constexpr bool is_property_spec_v = is_property_spec<T>::value;
 } // namespace traits

@@ -30,19 +30,19 @@ template <typename PropertySpecs, typename MethodSpecs> class Interface;
 
 template <POLY_STORAGE StorageType, typename... PropertySpecs,
           typename... MethodSpecs>
-class basic_interface<StorageType, traits::type_list<PropertySpecs...>,
-                      traits::type_list<MethodSpecs...>>
+class basic_interface<StorageType, poly::type_list<PropertySpecs...>,
+                      poly::type_list<MethodSpecs...>>
     : public detail::PropertyInjector<
           PropertySpecs,
-          basic_interface<StorageType, traits::type_list<PropertySpecs...>,
-                          traits::type_list<MethodSpecs...>>>...,
+          basic_interface<StorageType, poly::type_list<PropertySpecs...>,
+                          poly::type_list<MethodSpecs...>>>...,
       public detail::MethodInjector<
           MethodSpecs,
-          basic_interface<StorageType, traits::type_list<PropertySpecs...>,
-                          traits::type_list<MethodSpecs...>>>... {
+          basic_interface<StorageType, poly::type_list<PropertySpecs...>,
+                          poly::type_list<MethodSpecs...>>>... {
 public:
-  using properties = traits::type_list<PropertySpecs...>;
-  using methods = traits::type_list<MethodSpecs...>;
+  using properties = poly::type_list<PropertySpecs...>;
+  using methods = poly::type_list<MethodSpecs...>;
   static_assert(poly::traits::is_storage_v<StorageType>,
                 "StorageType must satisfy the Storage concept.");
   static_assert((poly::traits::is_property_spec_v<PropertySpecs> && ...),
