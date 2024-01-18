@@ -199,6 +199,7 @@ inline constexpr bool is_nothrow_method_v =
 template <typename MethodSpec>
 inline constexpr bool is_const_method_v =
     traits::func_is_const<MethodSpec>::value;
+
 /// evaluates to true if T satisfies the storage concept
 template <typename T>
 inline constexpr bool is_storage_v = traits::is_storage_v<T>;

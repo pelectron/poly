@@ -1,5 +1,7 @@
 #ifndef POLY_PTABLE_HPP
 #define POLY_PTABLE_HPP
+#include "poly/config.hpp"
+
 #include "poly/always_false.hpp"
 #include "poly/property.hpp"
 #include "poly/traits.hpp"
@@ -103,37 +105,6 @@ struct PTable : private PTableEntry<PropertySpec>... {
   template <typename T>
   constexpr PTable(poly::traits::Id<T> id) : PTableEntry<PropertySpec>(id)... {}
 };
-
-/// default injector does nothing
-template <typename PropertySpec, typename Self, typename = void>
-struct PropertyInjector {};
-
-/// if the Property was created with the POLY_PROPERTY macro, the name is
-/// injected and the property can be set with obj.PropertyName(value) and
-/// retrieved with obj.PropertyName()
-template <typename Name, typename Type, typename Self>
-struct PropertyInjector<
-    Name(Type), Self,
-    std::void_t<typename Name::template injector<Self, Name(Type)>>>
-    : Name::template injector<Self, Name(Type)> {};
-
-template <typename Name, typename Type, typename Self>
-struct PropertyInjector<
-    const Name(Type), Self,
-    std::void_t<typename Name::template injector<Self, const Name(Type)>>>
-    : Name::template injector<Self, const Name(Type)> {};
-
-template <typename Name, typename Type, typename Self>
-struct PropertyInjector<
-    Name(Type) noexcept, Self,
-    std::void_t<typename Name::template injector<Self, Name(Type) noexcept>>>
-    : Name::template injector<Self, Name(Type) noexcept> {};
-
-template <typename Name, typename Type, typename Self>
-struct PropertyInjector<const Name(Type) noexcept, Self,
-                        std::void_t<typename Name::template injector<
-                            Self, const Name(Type) noexcept>>>
-    : Name::template injector<Self, const Name(Type) noexcept> {};
 
 template <typename T, typename... PropertySpecs>
 inline constexpr PTable<PropertySpecs...> ptable_for =

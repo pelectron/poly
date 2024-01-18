@@ -160,7 +160,6 @@ TEST_CASE("ref_storage", "[storage]") {
 
 /// covers:
 ///   - construction from T
-///   - move construction from storage
 TEMPLATE_TEST_CASE(
     "storage ctor", "[storage]",
     (poly::type_list<poly::local_storage<32, 8>, Tracker<8, 8>>),
@@ -196,33 +195,18 @@ TEMPLATE_TEST_CASE(
       REQUIRE(s.data() != nullptr);
     }
   }
-  SECTION("move ctor") {
-    SECTION("move construct from empty storage") {
-      Storage s1{};
-      Storage s2{std::move(s1)};
-      REQUIRE(s1.data() == nullptr);
-      REQUIRE(s2.data() == nullptr);
-    }
-    SECTION("move construct from non empty storage") {
-      int count = 0;
-      Storage s1{Object{count}};
-      REQUIRE(count == 1);
-      Storage s2{std::move(s1)};
-      REQUIRE(count == 1);
-      REQUIRE(s1.data() == nullptr);
-      REQUIRE(s2.data() != nullptr);
-    }
-  }
 }
 
 /// covers:
 ///   - copy construction from storage
 ///   - copy assignment
-TEMPLATE_TEST_CASE("storage copy", "[storage]",
-                   (poly::type_list<poly::local_storage<32, 8>, Track>),
-                   (poly::type_list<poly::sbo_storage<32, 8>, MediumTrack>),
-                   (poly::type_list<poly::sbo_storage<32, 8>, MediumTrack2>),
-                   (poly::type_list<poly::sbo_storage<32, 8>, BigTrack>)) {
+TEMPLATE_TEST_CASE(
+    "storage copy", "[storage]",
+    (poly::type_list<poly::local_storage<32, 8>, Tracker<8, 8>>),
+    (poly::type_list<poly::sbo_storage<32, 8>, Tracker<8, 8>>),
+    (poly::type_list<poly::sbo_storage<32, 8>, Tracker<8, 16>>),
+    (poly::type_list<poly::sbo_storage<32, 8>, Tracker<64, 8>>),
+    (poly::type_list<poly::sbo_storage<32, 8>, Tracker<64, 16>>)) {
 
   using Storage = poly::at_t<TestType, 0>;
   using Object = poly::at_t<TestType, 1>;
@@ -304,6 +288,105 @@ TEMPLATE_TEST_CASE("storage copy", "[storage]",
   }
 }
 /// covers:
+///   - move construction from storage
+///   - move assignment
+TEMPLATE_TEST_CASE(
+    "storage move", "[storage]",
+    (poly::type_list<poly::local_storage<32, 8>, Tracker<8, 8>>),
+    (poly::type_list<poly::local_storage<32, 8>, Tracker<24, 8>>),
+    (poly::type_list<poly::local_storage<32, 8>, Tracker<24, 4>>),
+    (poly::type_list<poly::move_only_local_storage<32, 8>, Tracker<8, 8>>),
+    (poly::type_list<poly::move_only_local_storage<32, 8>, Tracker<24, 8>>),
+    (poly::type_list<poly::move_only_local_storage<32, 8>, Tracker<24, 4>>),
+    (poly::type_list<poly::sbo_storage<32, 8>, Tracker<8, 8>>),
+    (poly::type_list<poly::sbo_storage<32, 8>, Tracker<8, 16>>),
+    (poly::type_list<poly::sbo_storage<32, 8>, Tracker<64, 8>>),
+    (poly::type_list<poly::sbo_storage<32, 8>, Tracker<64, 16>>),
+    (poly::type_list<poly::move_only_sbo_storage<32, 8>, Tracker<8, 8>>),
+    (poly::type_list<poly::move_only_sbo_storage<32, 8>, Tracker<8, 16>>),
+    (poly::type_list<poly::move_only_sbo_storage<32, 8>, Tracker<64, 8>>),
+    (poly::type_list<poly::move_only_sbo_storage<32, 8>, Tracker<64, 16>>)) {
+
+  using Storage = poly::at_t<TestType, 0>;
+  using Object = poly::at_t<TestType, 1>;
+  SECTION("move") {
+    SECTION("move construct from empty storage") {
+      Storage s1{};
+      Storage s2{std::move(s1)};
+      REQUIRE(s1.data() == nullptr);
+      REQUIRE(s2.data() == nullptr);
+    }
+    SECTION("move construct from non empty storage") {
+      int count = 0;
+      Storage s1{Object{count}};
+      REQUIRE(count == 1);
+      Storage s2{std::move(s1)};
+      REQUIRE(count == 1);
+      REQUIRE(s1.data() == nullptr);
+      REQUIRE(s2.data() != nullptr);
+    }
+  }
+  SECTION("assignment") {
+    SECTION("move assign empty into empty") {
+      Storage s1{};
+      Storage s2{};
+      REQUIRE(s1.data() == nullptr);
+      REQUIRE(s2.data() == nullptr);
+      s2 = std::move(s1);
+      REQUIRE(s1.data() == nullptr);
+      REQUIRE(s2.data() == nullptr);
+    }
+    SECTION("move assign to self") {
+      int count = 0;
+      Storage s1{Object(count)};
+      REQUIRE(count == 1);
+      REQUIRE(s1.data() != nullptr);
+      s1 = std::move(s1);
+      REQUIRE(count == 1);
+      REQUIRE(s1.data() != nullptr);
+    }
+    SECTION("move assign non empty into empty") {
+      int count = 0;
+      Storage s1{Object(count)};
+      Storage s2{};
+      REQUIRE(count == 1);
+      REQUIRE(s1.data() != nullptr);
+      REQUIRE(s2.data() == nullptr);
+      s2 = std::move(s1);
+      REQUIRE(count == 1);
+      REQUIRE(s1.data() == nullptr);
+      REQUIRE(s2.data() != nullptr);
+    }
+    SECTION("move assign empty into non empty") {
+      int count = 0;
+      Storage s1{};
+      Storage s2{Object(count)};
+      REQUIRE(count == 1);
+      REQUIRE(s1.data() == nullptr);
+      REQUIRE(s2.data() != nullptr);
+      s2 = std::move(s1);
+      REQUIRE(count == 0);
+      REQUIRE(s1.data() == nullptr);
+      REQUIRE(s2.data() == nullptr);
+    }
+    SECTION("move assign non empty into non empty") {
+      int count = 0;
+      int count2 = 0;
+      Storage s1{Object(count)};
+      Storage s2{Object(count2)};
+      REQUIRE(count == 1);
+      REQUIRE(count2 == 1);
+      REQUIRE(s1.data() != nullptr);
+      REQUIRE(s2.data() != nullptr);
+      s2 = std::move(s1);
+      REQUIRE(count == 1);
+      REQUIRE(count2 == 0);
+      REQUIRE(s1.data() == nullptr);
+      REQUIRE(s2.data() != nullptr);
+    }
+  }
+}
+/// covers:
 ///   -storage dtor
 TEMPLATE_TEST_CASE(
     "storage dtor", "[storage]",
@@ -327,6 +410,7 @@ TEMPLATE_TEST_CASE(
   }
   REQUIRE(count == 0);
 }
+
 TEMPLATE_TEST_CASE(
     "storage::emplace", "[storage]",
     (poly::type_list<poly::local_storage<32, 8>, Tracker<8, 8>>),
@@ -564,7 +648,8 @@ using C = poly::type_list<poly::sbo_storage<16, 4>, poly::sbo_storage<32, 8>,
 /// covers:
 /// - copy ctor for different sizes
 /// - copy assignment for different sizes
-TEMPLATE_TEST_CASE("copy sbo storage of different sizes", "[storage]", A, B,C) {
+TEMPLATE_TEST_CASE("copy sbo storage of different sizes", "[storage]", A, B,
+                   C) {
 
   using Storage1 = poly::at_t<TestType, 0>;
   using Storage2 = poly::at_t<TestType, 1>;
@@ -579,7 +664,7 @@ TEMPLATE_TEST_CASE("copy sbo storage of different sizes", "[storage]", A, B,C) {
   using OverAlignedLargeObject =
       poly::at_t<TestType, 6>; // would not fit either buffer
 
-  SECTION("copy big into small buffer") {
+  SECTION("copy Storage1 into Storage2") {
     SECTION("copy ctor") {
       SECTION("construct from empty storage") {
         const Storage1 bs{};
@@ -719,7 +804,7 @@ TEMPLATE_TEST_CASE("copy sbo storage of different sizes", "[storage]", A, B,C) {
         SECTION("object stays on heap") {
           int count = 0;
           int count2 = 0;
-          const Storage1 bs{BigTrack(count)};
+          const Storage1 bs{LargeObject(count)};
           Storage2 ss{Track(count2)};
           REQUIRE(count == 1);
           REQUIRE(count2 == 1);
@@ -730,7 +815,7 @@ TEMPLATE_TEST_CASE("copy sbo storage of different sizes", "[storage]", A, B,C) {
       }
     }
   }
-  SECTION("copy small into big buffer") {
+  SECTION("copy Storage2 into Storage1") {
     SECTION("copy ctor") {
       SECTION("copy construct from empty storage") {
         const Storage2 ss{};
@@ -741,28 +826,35 @@ TEMPLATE_TEST_CASE("copy sbo storage of different sizes", "[storage]", A, B,C) {
       SECTION("copy construct from non empty storage") {
         SECTION("object fits both buffers") {
           int count = 0;
-          const Storage2 ss{Track(count)};
+          const Storage2 ss{SmallObject(count)};
           REQUIRE(count == 1);
           Storage1 bs{ss};
           REQUIRE(count == 2);
         }
         SECTION("object fits bigger buffer") {
           int count = 0;
-          const Storage2 ss{MediumTrack(count)};
+          const Storage2 ss{MediumObject(count)};
           REQUIRE(count == 1);
           Storage1 bs{ss};
           REQUIRE(count == 2);
         }
         SECTION("overaligned object fits bigger buffer") {
           int count = 0;
-          const Storage2 ss{MediumTrack2(count)};
+          const Storage2 ss{OverAlignedSmallObject(count)};
+          REQUIRE(count == 1);
+          Storage1 bs{ss};
+          REQUIRE(count == 2);
+        }
+        SECTION("overaligned object stays on heap") {
+          int count = 0;
+          const Storage2 ss{OverAlignedLargeObject(count)};
           REQUIRE(count == 1);
           Storage1 bs{ss};
           REQUIRE(count == 2);
         }
         SECTION("object stays on heap") {
           int count = 0;
-          const Storage2 ss{BigTrack(count)};
+          const Storage2 ss{LargeObject(count)};
           REQUIRE(count == 1);
           Storage1 bs{ss};
           REQUIRE(count == 2);
@@ -782,7 +874,7 @@ TEMPLATE_TEST_CASE("copy sbo storage of different sizes", "[storage]", A, B,C) {
       SECTION("copy assign non empty into empty storage") {
         SECTION("object fits both buffers") {
           int count = 0;
-          const Storage2 ss{Track(count)};
+          const Storage2 ss{SmallObject(count)};
           REQUIRE(count == 1);
           Storage1 bs{};
           bs = ss;
@@ -790,7 +882,7 @@ TEMPLATE_TEST_CASE("copy sbo storage of different sizes", "[storage]", A, B,C) {
         }
         SECTION("object fits bigger buffer") {
           int count = 0;
-          const Storage2 ss{MediumTrack(count)};
+          const Storage2 ss{MediumObject(count)};
           REQUIRE(count == 1);
           Storage1 bs{};
           bs = ss;
@@ -798,7 +890,15 @@ TEMPLATE_TEST_CASE("copy sbo storage of different sizes", "[storage]", A, B,C) {
         }
         SECTION("overaligned object fits bigger buffer") {
           int count = 0;
-          const Storage2 ss{MediumTrack(count)};
+          const Storage2 ss{OverAlignedSmallObject(count)};
+          REQUIRE(count == 1);
+          Storage1 bs{};
+          bs = ss;
+          REQUIRE(count == 2);
+        }
+        SECTION("overaligned object on heap") {
+          int count = 0;
+          const Storage2 ss{OverAlignedLargeObject(count)};
           REQUIRE(count == 1);
           Storage1 bs{};
           bs = ss;
@@ -806,7 +906,7 @@ TEMPLATE_TEST_CASE("copy sbo storage of different sizes", "[storage]", A, B,C) {
         }
         SECTION("object stays on heap") {
           int count = 0;
-          const Storage2 ss{BigTrack(count)};
+          const Storage2 ss{LargeObject(count)};
           REQUIRE(count == 1);
           Storage1 bs{};
           bs = ss;
@@ -817,8 +917,8 @@ TEMPLATE_TEST_CASE("copy sbo storage of different sizes", "[storage]", A, B,C) {
         SECTION("object fits both buffers") {
           int count = 0;
           int count2 = 0;
-          const Storage2 ss{Track(count)};
-          Storage1 bs{Track(count2)};
+          const Storage2 ss{SmallObject(count)};
+          Storage1 bs{SmallObject(count2)};
           REQUIRE(count == 1);
           REQUIRE(count2 == 1);
           bs = ss;
@@ -828,7 +928,7 @@ TEMPLATE_TEST_CASE("copy sbo storage of different sizes", "[storage]", A, B,C) {
         SECTION("object fits bigger buffer") {
           int count = 0;
           int count2 = 0;
-          const Storage2 ss{MediumTrack(count)};
+          const Storage2 ss{MediumObject(count)};
           Storage1 bs{Track(count2)};
           REQUIRE(count == 1);
           REQUIRE(count2 == 1);
@@ -839,7 +939,18 @@ TEMPLATE_TEST_CASE("copy sbo storage of different sizes", "[storage]", A, B,C) {
         SECTION("overaligned object fits bigger buffer") {
           int count = 0;
           int count2 = 0;
-          const Storage2 ss{MediumTrack(count)};
+          const Storage2 ss{OverAlignedSmallObject(count)};
+          Storage1 bs{Track(count2)};
+          REQUIRE(count == 1);
+          REQUIRE(count2 == 1);
+          bs = ss;
+          REQUIRE(count == 2);
+          REQUIRE(count2 == 0);
+        }
+        SECTION("overaligned object on heap") {
+          int count = 0;
+          int count2 = 0;
+          const Storage2 ss{OverAlignedLargeObject(count)};
           Storage1 bs{Track(count2)};
           REQUIRE(count == 1);
           REQUIRE(count2 == 1);
@@ -850,13 +961,20 @@ TEMPLATE_TEST_CASE("copy sbo storage of different sizes", "[storage]", A, B,C) {
         SECTION("object stays on heap") {
           int count = 0;
           int count2 = 0;
-          const Storage2 ss{BigTrack(count)};
+          const Storage2 ss{LargeObject(count)};
           Storage1 bs{Track(count2)};
           REQUIRE(count == 1);
           REQUIRE(count2 == 1);
           bs = ss;
           REQUIRE(count == 2);
           REQUIRE(count2 == 0);
+        }
+        SECTION("self assignment") {
+          int count = 0;
+          Storage2 ss{LargeObject(count)};
+          REQUIRE(count == 1);
+          ss = ss;
+          REQUIRE(count == 1);
         }
       }
     }
@@ -865,61 +983,72 @@ TEMPLATE_TEST_CASE("copy sbo storage of different sizes", "[storage]", A, B,C) {
 /// covers:
 /// - move ctor for different sizes
 /// - move assignment for different sizes
-TEMPLATE_TEST_CASE("move sbo storage of different sizes", "[storage]",
-                   (poly::move_only_sbo_storage<32, 8>),
-                   (poly::move_only_sbo_storage<32, 1>),
-                   (poly::move_only_sbo_storage<16, 8>),
-                   (poly::move_only_sbo_storage<128, 1>),
-                   (poly::move_only_sbo_storage<128, 64>),
-                   (poly::move_only_sbo_storage<16, 16>),
-                   (poly::move_only_sbo_storage<4, 16>),
-                   (poly::move_only_sbo_storage<16, 32>)) {
-  using BigStorage = poly::move_only_sbo_storage<128, 8>;
-  using SmallStorage = TestType;
+TEMPLATE_TEST_CASE("move sbo storage of different sizes", "[storage]", A, B,
+                   C) {
 
-  SECTION("move big into small storage") {
+  using Storage1 = poly::at_t<TestType, 0>;
+  using Storage2 = poly::at_t<TestType, 1>;
+  using SmallObject =
+      poly::at_t<TestType, 2>; // fits into buffer of both storages
+  using MediumObject =
+      poly::at_t<TestType, 3>; // fits into buffer of larger storage
+  using LargeObject = poly::at_t<TestType, 4>; // only fits on heap
+  using OverAlignedSmallObject =
+      poly::at_t<TestType,
+                 5>; // would fit into smaller storage if not for alignment
+  using OverAlignedLargeObject =
+      poly::at_t<TestType, 6>; // would not fit either buffer
+
+  SECTION("move Storage1 into Storage2") {
     SECTION("move ctor") {
-      SECTION("move construct from empty storage") {
-        BigStorage bs{};
-        SmallStorage ss{std::move(bs)};
+      SECTION("construct from empty storage") {
+        Storage1 bs{};
+        Storage2 ss{std::move(bs)};
         REQUIRE(bs.data() == nullptr);
         REQUIRE(ss.data() == nullptr);
       }
-      SECTION("move construct from non empty storage") {
+      SECTION("construct from non empty storage") {
         SECTION("object fits both buffers") {
           int count = 0;
-          BigStorage bs{Track(count)};
+          Storage1 bs{SmallObject(count)};
           REQUIRE(count == 1);
-          SmallStorage ss{std::move(bs)};
+          Storage2 ss{std::move(bs)};
           REQUIRE(count == 1);
         }
         SECTION("object fits bigger buffer") {
           int count = 0;
-          BigStorage bs{MediumTrack(count)};
+          Storage1 bs{MediumObject(count)};
           REQUIRE(count == 1);
-          SmallStorage ss{std::move(bs)};
+          Storage2 ss{std::move(bs)};
           REQUIRE(count == 1);
         }
         SECTION("overaligned object fits bigger buffer") {
           int count = 0;
-          BigStorage bs{MediumTrack2(count)};
+          Storage1 bs{OverAlignedSmallObject(count)};
           REQUIRE(count == 1);
-          SmallStorage ss{std::move(bs)};
+          Storage2 ss{std::move(bs)};
           REQUIRE(count == 1);
         }
-        SECTION("object stays on heap") {
+        SECTION("overaligned object on heap") {
           int count = 0;
-          BigStorage bs{BigTrack(count)};
+          Storage1 bs{OverAlignedLargeObject(count)};
           REQUIRE(count == 1);
-          SmallStorage ss{std::move(bs)};
+          Storage2 ss{std::move(bs)};
+          REQUIRE(count == 1);
+        }
+        SECTION("object on heap") {
+          int count = 0;
+          Storage1 bs{LargeObject(count)};
+          REQUIRE(count == 1);
+          Storage2 ss{std::move(bs)};
           REQUIRE(count == 1);
         }
       }
     }
     SECTION("move assignment") {
       SECTION("move assign empty into empty storage") {
-        BigStorage bs{};
-        SmallStorage ss{};
+        const Storage1 bs{};
+        Storage2 ss{};
         REQUIRE(bs.data() == nullptr);
         REQUIRE(ss.data() == nullptr);
         ss = std::move(bs);
@@ -929,33 +1058,41 @@ TEMPLATE_TEST_CASE("move sbo storage of different sizes", "[storage]",
       SECTION("move assign non empty into empty storage") {
         SECTION("object fits both buffers") {
           int count = 0;
-          BigStorage bs{Track(count)};
+          Storage1 bs{SmallObject(count)};
           REQUIRE(count == 1);
-          SmallStorage ss{};
+          Storage2 ss{};
           ss = std::move(bs);
           REQUIRE(count == 1);
         }
         SECTION("object fits bigger buffer") {
           int count = 0;
-          BigStorage bs{MediumTrack(count)};
+          Storage1 bs{MediumObject(count)};
           REQUIRE(count == 1);
-          SmallStorage ss{};
+          Storage2 ss{};
           ss = std::move(bs);
           REQUIRE(count == 1);
         }
         SECTION("overaligned object fits bigger buffer") {
           int count = 0;
-          BigStorage bs{MediumTrack2(count)};
+          Storage1 bs{OverAlignedSmallObject(count)};
           REQUIRE(count == 1);
-          SmallStorage ss{};
+          Storage2 ss{};
           ss = std::move(bs);
           REQUIRE(count == 1);
         }
-        SECTION("object stays on heap") {
+        SECTION("overaligned object on heap") {
           int count = 0;
-          BigStorage bs{BigTrack(count)};
+          Storage1 bs{OverAlignedLargeObject(count)};
           REQUIRE(count == 1);
-          SmallStorage ss{};
+          Storage2 ss{};
+          ss = std::move(bs);
+          REQUIRE(count == 1);
+        }
+        SECTION("object on heap") {
+          int count = 0;
+          Storage1 bs{LargeObject(count)};
+          REQUIRE(count == 1);
+          Storage2 ss{};
           ss = std::move(bs);
           REQUIRE(count == 1);
         }
@@ -964,8 +1101,8 @@ TEMPLATE_TEST_CASE("move sbo storage of different sizes", "[storage]",
         SECTION("object fits both buffers") {
           int count = 0;
           int count2 = 0;
-          BigStorage bs{Track(count)};
-          SmallStorage ss{Track(count2)};
+          Storage1 bs{SmallObject(count)};
+          Storage2 ss{SmallObject(count2)};
           REQUIRE(count == 1);
           REQUIRE(count2 == 1);
           ss = std::move(bs);
@@ -975,8 +1112,8 @@ TEMPLATE_TEST_CASE("move sbo storage of different sizes", "[storage]",
         SECTION("object fits bigger buffer") {
           int count = 0;
           int count2 = 0;
-          BigStorage bs{MediumTrack(count)};
-          SmallStorage ss{Track(count2)};
+          Storage1 bs{MediumObject(count)};
+          Storage2 ss{SmallObject(count2)};
           REQUIRE(count == 1);
           REQUIRE(count2 == 1);
           ss = std::move(bs);
@@ -986,8 +1123,19 @@ TEMPLATE_TEST_CASE("move sbo storage of different sizes", "[storage]",
         SECTION("overaligned object fits bigger buffer") {
           int count = 0;
           int count2 = 0;
-          BigStorage bs{MediumTrack(count)};
-          SmallStorage ss{Track(count2)};
+          Storage1 bs{OverAlignedSmallObject(count)};
+          Storage2 ss{SmallObject(count2)};
+          REQUIRE(count == 1);
+          REQUIRE(count2 == 1);
+          ss = std::move(bs);
+          REQUIRE(count == 1);
+          REQUIRE(count2 == 0);
+        }
+        SECTION("overaligned object on heap") {
+          int count = 0;
+          int count2 = 0;
+          Storage1 bs{OverAlignedLargeObject(count)};
+          Storage2 ss{SmallObject(count2)};
           REQUIRE(count == 1);
           REQUIRE(count2 == 1);
           ss = std::move(bs);
@@ -997,8 +1145,8 @@ TEMPLATE_TEST_CASE("move sbo storage of different sizes", "[storage]",
         SECTION("object stays on heap") {
           int count = 0;
           int count2 = 0;
-          BigStorage bs{BigTrack(count)};
-          SmallStorage ss{Track(count2)};
+          Storage1 bs{LargeObject(count)};
+          Storage2 ss{SmallObject(count2)};
           REQUIRE(count == 1);
           REQUIRE(count2 == 1);
           ss = std::move(bs);
@@ -1008,49 +1156,56 @@ TEMPLATE_TEST_CASE("move sbo storage of different sizes", "[storage]",
       }
     }
   }
-  SECTION("move small into big storage") {
+  SECTION("move Storage2 into Storage1") {
     SECTION("move ctor") {
       SECTION("move construct from empty storage") {
-        SmallStorage ss{};
-        BigStorage bs{std::move(ss)};
+        Storage2 ss{};
+        Storage1 bs{std::move(ss)};
         REQUIRE(ss.data() == nullptr);
         REQUIRE(bs.data() == nullptr);
       }
       SECTION("move construct from non empty storage") {
         SECTION("object fits both buffers") {
           int count = 0;
-          SmallStorage ss{Track(count)};
+          Storage2 ss{SmallObject(count)};
           REQUIRE(count == 1);
-          BigStorage bs{std::move(ss)};
+          Storage1 bs{std::move(ss)};
           REQUIRE(count == 1);
         }
         SECTION("object fits bigger buffer") {
           int count = 0;
-          SmallStorage ss{MediumTrack(count)};
+          Storage2 ss{MediumObject(count)};
           REQUIRE(count == 1);
-          BigStorage bs{std::move(ss)};
+          Storage1 bs{std::move(ss)};
           REQUIRE(count == 1);
         }
         SECTION("overaligned object fits bigger buffer") {
           int count = 0;
-          SmallStorage ss{MediumTrack(count)};
+          Storage2 ss{OverAlignedSmallObject(count)};
           REQUIRE(count == 1);
-          BigStorage bs{std::move(ss)};
+          Storage1 bs{std::move(ss)};
+          REQUIRE(count == 1);
+        }
+        SECTION("overaligned object on heap") {
+          int count = 0;
+          Storage2 ss{OverAlignedLargeObject(count)};
+          REQUIRE(count == 1);
+          Storage1 bs{std::move(ss)};
           REQUIRE(count == 1);
         }
         SECTION("object stays on heap") {
           int count = 0;
-          SmallStorage ss{BigTrack(count)};
+          Storage2 ss{LargeObject(count)};
           REQUIRE(count == 1);
-          BigStorage bs{std::move(ss)};
+          Storage1 bs{std::move(ss)};
           REQUIRE(count == 1);
         }
       }
     }
     SECTION("move assignment") {
       SECTION("move assign empty into empty storage") {
-        SmallStorage ss{};
-        BigStorage bs{};
+        Storage2 ss{};
+        Storage1 bs{};
         REQUIRE(ss.data() == nullptr);
         REQUIRE(bs.data() == nullptr);
         bs = std::move(ss);
@@ -1060,81 +1215,110 @@ TEMPLATE_TEST_CASE("move sbo storage of different sizes", "[storage]",
       SECTION("move assign non empty into empty storage") {
         SECTION("object fits both buffers") {
           int count = 0;
-          SmallStorage ss{Track(count)};
+          Storage2 ss{SmallObject(count)};
           REQUIRE(count == 1);
-          BigStorage bs{};
+          Storage1 bs{};
           bs = std::move(ss);
           REQUIRE(count == 1);
+          REQUIRE(ss.data() == nullptr);
         }
         SECTION("object fits bigger buffer") {
           int count = 0;
-          SmallStorage ss{MediumTrack(count)};
+          Storage2 ss{MediumObject(count)};
           REQUIRE(count == 1);
-          BigStorage bs{};
+          Storage1 bs{};
           bs = std::move(ss);
           REQUIRE(count == 1);
+          REQUIRE(ss.data() == nullptr);
         }
         SECTION("overaligned object fits bigger buffer") {
           int count = 0;
-          SmallStorage ss{MediumTrack(count)};
+          Storage2 ss{OverAlignedSmallObject(count)};
           REQUIRE(count == 1);
-          BigStorage bs{};
+          Storage1 bs{};
           bs = std::move(ss);
           REQUIRE(count == 1);
+          REQUIRE(ss.data() == nullptr);
+        }
+        SECTION("overaligned object stays on heap") {
+          int count = 0;
+          Storage2 ss{OverAlignedLargeObject(count)};
+          REQUIRE(count == 1);
+          Storage1 bs{};
+          bs = std::move(ss);
+          REQUIRE(count == 1);
+          REQUIRE(ss.data() == nullptr);
         }
         SECTION("object stays on heap") {
           int count = 0;
-          SmallStorage ss{BigTrack(count)};
+          Storage2 ss{LargeObject(count)};
           REQUIRE(count == 1);
-          BigStorage bs{};
+          Storage1 bs{};
           bs = std::move(ss);
           REQUIRE(count == 1);
+          REQUIRE(ss.data() == nullptr);
         }
       }
       SECTION("move assign non empty into non empty storage") {
         SECTION("object fits both buffers") {
           int count = 0;
           int count2 = 0;
-          SmallStorage ss{Track(count)};
-          BigStorage bs{Track(count2)};
+          Storage2 ss{SmallObject(count)};
+          Storage1 bs{SmallObject(count2)};
           REQUIRE(count == 1);
           REQUIRE(count2 == 1);
           bs = std::move(ss);
           REQUIRE(count == 1);
           REQUIRE(count2 == 0);
+          REQUIRE(ss.data() == nullptr);
         }
         SECTION("object fits bigger buffer") {
           int count = 0;
           int count2 = 0;
-          SmallStorage ss{MediumTrack(count)};
-          BigStorage bs{Track(count2)};
+          Storage2 ss{MediumObject(count)};
+          Storage1 bs{SmallObject(count2)};
           REQUIRE(count == 1);
           REQUIRE(count2 == 1);
           bs = std::move(ss);
           REQUIRE(count == 1);
           REQUIRE(count2 == 0);
+          REQUIRE(ss.data() == nullptr);
         }
         SECTION("overaligned object fits bigger buffer") {
           int count = 0;
           int count2 = 0;
-          SmallStorage ss{MediumTrack(count)};
-          BigStorage bs{Track(count2)};
+          Storage2 ss{OverAlignedSmallObject(count)};
+          Storage1 bs{SmallObject(count2)};
           REQUIRE(count == 1);
           REQUIRE(count2 == 1);
           bs = std::move(ss);
           REQUIRE(count == 1);
           REQUIRE(count2 == 0);
+          REQUIRE(ss.data() == nullptr);
+        }
+        SECTION("overaligned object on heap") {
+          int count = 0;
+          int count2 = 0;
+          Storage2 ss{OverAlignedLargeObject(count)};
+          Storage1 bs{SmallObject(count2)};
+          REQUIRE(count == 1);
+          REQUIRE(count2 == 1);
+          bs = std::move(ss);
+          REQUIRE(count == 1);
+          REQUIRE(count2 == 0);
+          REQUIRE(ss.data() == nullptr);
         }
         SECTION("object stays on heap") {
           int count = 0;
           int count2 = 0;
-          SmallStorage ss{BigTrack(count)};
-          BigStorage bs{Track(count2)};
+          Storage2 ss{OverAlignedLargeObject(count)};
+          Storage1 bs{SmallObject(count2)};
           REQUIRE(count == 1);
           REQUIRE(count2 == 1);
           bs = std::move(ss);
           REQUIRE(count == 1);
           REQUIRE(count2 == 0);
+          REQUIRE(ss.data() == nullptr);
         }
       }
     }

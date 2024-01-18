@@ -1,8 +1,11 @@
 #ifndef POLY_INTERFACE_HPP
 #define POLY_INTERFACE_HPP
+#include "poly/config.hpp"
+
 #include "poly/ptable.hpp"
 #include "poly/storage.hpp"
 #include "poly/vtable.hpp"
+#include <cstddef>
 
 namespace poly {
 
@@ -41,14 +44,21 @@ class basic_interface<StorageType, poly::type_list<PropertySpecs...>,
           basic_interface<StorageType, poly::type_list<PropertySpecs...>,
                           poly::type_list<MethodSpecs...>>>... {
 public:
+  using self_type =
+      basic_interface<StorageType, poly::type_list<PropertySpecs...>,
+                      poly::type_list<MethodSpecs...>>;
   using properties = poly::type_list<PropertySpecs...>;
   using methods = poly::type_list<MethodSpecs...>;
   static_assert(poly::traits::is_storage_v<StorageType>,
                 "StorageType must satisfy the Storage concept.");
-  static_assert((poly::traits::is_property_spec_v<PropertySpecs> && ...),
-                "The provided PropertySpecs must be valid PropertySpecs.");
-  static_assert((poly::traits::is_method_spec_v<MethodSpecs> && ...),
-                "The provided MethodSpecs must be valid MethodSpecs.");
+  static_assert(
+      (poly::traits::is_property_spec_v<PropertySpecs> && ...),
+      "The provided PropertySpecs must be valid PropertySpecs, i.e. a funcion "
+      "type with signature [const] PropertyName(Type) [noexcept].");
+  static_assert(
+      (poly::traits::is_method_spec_v<MethodSpecs> && ...),
+      "The provided MethodSpecs must be valid MethodSpecs, i.e. a function "
+      "type with signature Ret(MethodName, Args...)[const noexcept].");
 
   basic_interface() = delete;
 
@@ -145,7 +155,9 @@ class Object : public basic_interface<local_storage<Size, Alignment>,
 public:
   using Base = basic_interface<local_storage<Size, Alignment>, PropertySpecs,
                                MethodSpecs>;
+  using self_type = Object<PropertySpecs, MethodSpecs, Size, Alignment>;
   using Base::operator=;
+  using Base::call;
   template <typename T, typename = std::enable_if_t<
                             not traits::is_storage_v<std::decay_t<T>>>>
   Object(T &&t) : Base(std::forward<T>(t)) {}
@@ -167,6 +179,7 @@ public:
   using Base = basic_interface<move_only_local_storage<Size, Alignment>,
                                PropertySpecs, MethodSpecs>;
   using Base::operator=;
+  using Base::call;
   template <typename T, typename = std::enable_if_t<
                             not traits::is_storage_v<std::decay_t<T>>>>
   MoveOnlyObject(T &&t) : Base(std::forward<T>(t)) {}
@@ -184,6 +197,7 @@ public:
   using Base =
       basic_interface<sbo_storage<Size, Alignment>, PropertySpecs, MethodSpecs>;
   using Base::operator=;
+  using Base::call;
   template <typename T, typename = std::enable_if_t<
                             not traits::is_storage_v<std::decay_t<T>>>>
   SboObject(T &&t) : Base(std::forward<T>(t)) {}
@@ -202,6 +216,7 @@ public:
   using Base = basic_interface<move_only_sbo_storage<Size, Alignment>,
                                PropertySpecs, MethodSpecs>;
   using Base::operator=;
+  using Base::call;
   template <typename T, typename = std::enable_if_t<
                             not traits::is_storage_v<std::decay_t<T>>>>
   SboMoveOnlyObject(T &&t) : Base(std::forward<T>(t)) {}

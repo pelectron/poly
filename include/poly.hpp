@@ -9,6 +9,8 @@
 #define INC_PROPERTIES_HPP_
 
 #include "poly/interface.hpp"
+#include "poly/method.hpp"
+#include "poly/property.hpp"
 
 
 

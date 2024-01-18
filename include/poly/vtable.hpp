@@ -1,5 +1,7 @@
 #ifndef POLY_VTABLE_HPP
 #define POLY_VTABLE_HPP
+#include "poly/config.hpp"
+
 #include "poly/traits.hpp"
 #include "poly/method.hpp"
 #include <utility>
@@ -119,38 +121,6 @@ struct VTable : private VTableEntry<MethodSpec>... {
   constexpr VTable(poly::traits::Id<T> id) noexcept
       : VTableEntry<MethodSpec>(id)... {}
 };
-
-/// default method injector does nothing
-template <typename MethodSpec, typename Self, typename = void>
-struct MethodInjector {};
-
-/// if the method was created with the POLY_METHOD macro, there will be an
-/// innner template named "injector" present, which is templated on a type Self and the MEthodSpec.
-/// The injector will link the Method with its real name, i.e. "Method".
-/// This allows the end user to use the syntax obj.Method(args...) instead of
-/// obj.call<Method>(args...).
-template <typename R, typename... A, typename M, typename Self>
-struct MethodInjector<R(M, A...), Self,
-                    std::void_t<typename M::template injector<Self, R(M, A...)>>>
-    : M::template injector<Self, R(M, A...)> {};
-
-template <typename R, typename... A, typename M, typename Self>
-struct MethodInjector<
-    R(M, A...) const, Self,
-    std::void_t<typename M::template injector<const Self, R(M, A...) const>>>
-    : M::template injector<Self, R(M, A...) const> {};
-
-template <typename R, typename... A, typename M, typename Self>
-struct MethodInjector<
-    R(M, A...) noexcept, Self,
-    std::void_t<typename M::template injector<Self, R(M, A...) noexcept>>>
-    : M::template injector<Self, R(M, A...) noexcept> {};
-
-template <typename R, typename... A, typename M, typename Self>
-struct MethodInjector<
-    R(M, A...) const noexcept, Self,
-    std::void_t<typename M::template injector<Self, R(M, A...) const noexcept>>>
-    : M::template injector<Self, R(M, A...) const noexcept> {};
 
 template <typename T, typename... MethodSpecs>
 inline constexpr VTable<MethodSpecs...> vtable_for =

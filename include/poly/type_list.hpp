@@ -61,6 +61,31 @@ struct filter_impl<type_list<T, Ts...>, type_list<Us...>, Trait> {
 template <typename List, template <typename> typename Trait>
 struct filter : filter_impl<List, type_list<>, Trait> {};
 
+template <typename List, template <typename> typename F> struct apply;
+
+template <typename... Ts, template <typename> typename F>
+struct apply<type_list<Ts...>, F> {
+  using type = type_list<typename F<Ts>::type...>;
+};
+
+template <typename List> struct contains_duplicates;
+
+template <typename List, typename T> struct contains_duplicates_impl;
+
+template <typename T, typename T1, typename... Ts>
+struct contains_duplicates_impl<type_list<T1, Ts...>, T> {
+  static constexpr bool value =
+      std::is_same_v<T, T1> or (std::is_same_v<T, Ts> or ...) or
+      contains_duplicates_impl<type_list<Ts...>, T1>::value;
+};
+template <typename T>
+struct contains_duplicates_impl<type_list<>, T> : std::false_type {};
+
+template <typename T, typename... Ts>
+struct contains_duplicates<type_list<T, Ts...>>
+    : contains_duplicates_impl<type_list<Ts...>, T> {};
+template <> struct contains_duplicates<type_list<>> : std::false_type {};
+
 } // namespace detail
 
 /// push T to the front of the type_list List
@@ -78,5 +103,12 @@ using at_t = typename detail::at<List, I>::type;
 /// filter list by predicate
 template <typename List, template <typename> typename Predicate>
 using filter_t = typename detail::filter<List, Predicate>::type;
+
+template <typename List, template <typename> typename F>
+using apply_t = typename detail::apply<List, F>::type;
+
+template <typename List>
+inline constexpr bool contains_duplicates_v =
+    detail::contains_duplicates<List>::value;
 } // namespace poly
 #endif

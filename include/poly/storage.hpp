@@ -1,7 +1,6 @@
 #ifndef POLY_STRORAGE_HPP
 #define POLY_STRORAGE_HPP
 #include "poly/traits.hpp"
-#include <memory>
 #include <new>
 
 namespace poly {
@@ -224,7 +223,7 @@ public:
   template <typename T, typename = std::enable_if_t<
                             not(poly::traits::is_storage_v<std::decay_t<T>> or
                                 detail::is_local_storage<std::decay_t<T>>)>>
-  basic_local_storage(T &&t) noexcept(
+  constexpr basic_local_storage(T &&t) noexcept(
       std::is_nothrow_constructible_v<std::decay_t<T>, T &&>) {
     this->emplace<std::decay_t<T>>(std::forward<T>(t));
   }
@@ -273,11 +272,6 @@ public:
                                   "from is too big to fit into this");
     return this->move(std::move(other));
   }
-
-  // /// move assignment
-  // constexpr basic_local_storage &operator=(basic_local_storage &&other) {
-  //   return this->move(std::move(other));
-  // }
 
 #if __cplusplus > 201703L
   constexpr ~basic_local_storage() { reset(); }
@@ -391,32 +385,32 @@ public:
   /// construct with a T
   template <typename T, typename = std::enable_if_t<
                             not(poly::traits::is_storage_v<std::decay_t<T>>)>>
-  local_storage(T &&t) noexcept(
+  constexpr local_storage(T &&t) noexcept(
       std::is_nothrow_constructible_v<std::decay_t<T>, T &&>)
       : Base(std::forward<T>(t)) {}
 
   /// move ctor
-  local_storage(local_storage &&s) : Base(std::move(s)) {}
+  constexpr local_storage(local_storage &&s) : Base(std::move(s)) {}
 
   /// copy ctor
   template <std::size_t S, std::size_t A>
-  local_storage(const local_storage<S, A> &s) : Base(s) {}
-  local_storage(const local_storage &s) : Base(s) {}
+  constexpr local_storage(const local_storage<S, A> &s) : Base(s) {}
+  constexpr local_storage(const local_storage &s) : Base(s) {}
 
   /// move assignment
   template <std::size_t S, std::size_t A>
-  local_storage &operator=(local_storage<S, A> &&s) {
+  constexpr local_storage &operator=(local_storage<S, A> &&s) {
     Base::operator=(std::move(s));
     return *this;
   }
 
   /// copy assignment
   template <std::size_t S, std::size_t A>
-  local_storage &operator=(const local_storage<A, S> &s) {
+  constexpr local_storage &operator=(const local_storage<A, S> &s) {
     Base::operator=(s);
     return *this;
   }
-  local_storage &operator=(const local_storage &s) {
+  constexpr local_storage &operator=(const local_storage &s) {
     Base::operator=(s);
     return *this;
   }
@@ -443,20 +437,21 @@ public:
   /// construct with a T
   template <typename T, typename = std::enable_if_t<
                             not(poly::traits::is_storage_v<std::decay_t<T>>)>>
-  move_only_local_storage(T &&t) noexcept(
+  constexpr move_only_local_storage(T &&t) noexcept(
       std::is_nothrow_move_constructible_v<std::decay_t<T>>)
       : Base(std::move(t)) {}
 
   /// move ctor
-  template<size_t S,size_t A>
-  move_only_local_storage(move_only_local_storage<S,A> &&s) : Base(std::move(s)) {}
+  template <size_t S, size_t A>
+  constexpr move_only_local_storage(move_only_local_storage<S, A> &&s)
+      : Base(std::move(s)) {}
 
   /// deleted copy ctor
   move_only_local_storage(const move_only_local_storage &s) = delete;
 
   /// move assignment
-  template<size_t S,size_t A>
-  move_only_local_storage &operator=(move_only_local_storage<S,A> &&s) {
+  template <size_t S, size_t A>
+  constexpr move_only_local_storage &operator=(move_only_local_storage<S, A> &&s) {
     Base::operator=(std::move(s));
     return *this;
   }
@@ -608,7 +603,6 @@ private:
       return *this;
     }
 
-
     if (other.vtbl_->size <= Size and other.vtbl_->align <= Alignment) {
       // others object fits into this small buffer
       if (other.is_heap_allocated()) {
@@ -728,7 +722,7 @@ public:
   /// construct with a T
   template <typename T, typename = std::enable_if_t<
                             not(poly::traits::is_storage_v<std::decay_t<T>>)>>
-  sbo_storage(T &&t) noexcept(
+  constexpr sbo_storage(T &&t) noexcept(
       std::is_nothrow_constructible_v<std::decay_t<T>, T &&>)
       : Base(std::forward<T>(t)) {}
 
@@ -737,7 +731,7 @@ public:
   constexpr sbo_storage(sbo_storage<S, A> &&s) : Base(std::move(s)) {}
 
   /// copy ctor
-  sbo_storage(const sbo_storage &s) : Base(s) {}
+  constexpr sbo_storage(const sbo_storage &s) : Base(s) {}
   template <size_t S, size_t A>
   constexpr sbo_storage(const sbo_storage<S, A> &s) : Base(s) {}
 
@@ -749,6 +743,10 @@ public:
   }
 
   /// copy assignemnt
+  constexpr sbo_storage &operator=(const sbo_storage &s) {
+    Base::operator=(s);
+    return *this;
+  }
   template <size_t S, size_t A>
   constexpr sbo_storage &operator=(const sbo_storage<S, A> &s) {
     Base::operator=(s);

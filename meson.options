@@ -1,0 +1,24 @@
+option( 'macros', 
+        type : 'boolean', 
+        value : true, 
+        description : 'Enable the usage of macros provided by poly')
+option( 'inject', 
+        type : 'boolean', 
+        value : true, 
+        description : 'Enable method and property injection')
+option( 'inject_methods', 
+        type : 'boolean', 
+        value : true, 
+        description : 'Enable method injection')
+option( 'inject_properties', 
+        type : 'boolean', 
+        value : true, 
+        description : 'Enable property injection')
+option( 'default_property_access', 
+        type: 'boolean', 
+        value: true, 
+        description: 'Enable the default implementation of get() and set() for properties.')
+option( 'default_extend', 
+        type: 'boolean', 
+        value: true, 
+        description: 'Enable the default implementation of extend().')

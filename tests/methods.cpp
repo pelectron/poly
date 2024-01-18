@@ -1,6 +1,8 @@
 #include "poly/traits.hpp"
+#include "poly/method.hpp"
 #include <catch2/catch_all.hpp>
 struct method1;
+POLY_METHOD(m1);
 
 TEMPLATE_TEST_CASE("is_method_spec_v", "[traits]", int, float,size_t) {
   CHECK(poly::is_method_spec_v<TestType(method1)>);
