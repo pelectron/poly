@@ -1,26 +1,37 @@
 #include "poly/storage.hpp"
 #include "catch2/catch_test_macros.hpp"
-#include <atomic>
 #include <catch2/catch_all.hpp>
+using namespace poly;
 
-struct tracker {
-  tracker() { ++alive; }
-  tracker(const tracker &) { ++alive; }
-  tracker &operator=(tracker &&) {
-    ++alive;
-    return *this;
-  }
-  tracker &operator=(const tracker &) {
-    ++alive;
-    return *this;
-  }
-  tracker(tracker &&) { ++alive; }
-  ~tracker() { --alive; }
-  static std::atomic<int> alive;
-  int data{0};
-};
+static_assert(poly::traits::is_storage_v<local_storage<32, 8>>);
+static_assert(poly::traits::is_storage_v<local_storage<64, 4>>);
+static_assert(poly::traits::is_storage_v<move_only_local_storage<32, 8>>);
+static_assert(poly::traits::is_storage_v<move_only_local_storage<64, 4>>);
 
-std::atomic<int> tracker::alive = 0;
+static_assert(std::is_copy_constructible_v<local_storage<32, 8>>);
+static_assert(std::is_copy_assignable_v<local_storage<32, 8>>);
+static_assert(std::is_move_constructible_v<local_storage<32, 8>>);
+static_assert(std::is_move_assignable_v<local_storage<32, 8>>);
+
+static_assert(not std::is_copy_constructible_v<move_only_local_storage<32, 8>>);
+static_assert(not std::is_copy_assignable_v<move_only_local_storage<32, 8>>);
+static_assert(std::is_move_constructible_v<move_only_local_storage<32, 8>>);
+static_assert(std::is_move_assignable_v<move_only_local_storage<32, 8>>);
+
+static_assert(poly::traits::is_storage_v<sbo_storage<32, 8>>);
+static_assert(poly::traits::is_storage_v<sbo_storage<64, 4>>);
+static_assert(poly::traits::is_storage_v<move_only_sbo_storage<32, 8>>);
+static_assert(poly::traits::is_storage_v<move_only_sbo_storage<64, 4>>);
+
+static_assert(std::is_copy_constructible_v<sbo_storage<32, 8>>);
+static_assert(std::is_copy_assignable_v<sbo_storage<32, 8>>);
+static_assert(std::is_move_constructible_v<sbo_storage<32, 8>>);
+static_assert(std::is_move_assignable_v<sbo_storage<32, 8>>);
+
+static_assert(not std::is_copy_constructible_v<move_only_sbo_storage<32, 8>>);
+static_assert(not std::is_copy_assignable_v<move_only_sbo_storage<32, 8>>);
+static_assert(std::is_move_constructible_v<move_only_sbo_storage<32, 8>>);
+static_assert(std::is_move_assignable_v<move_only_sbo_storage<32, 8>>);
 
 template <size_t Size, size_t Align> class Tracker {
 public:
@@ -57,105 +68,20 @@ private:
   int *count;
   alignas(Align) std::byte buffer[Size]{};
 };
-struct Track {
-
-  Track(int &c) : count(&c) {
-    assert(count != nullptr);
-    ++(*count);
-  }
-  Track(const Track &o) : count(o.count) {
-    assert(count != nullptr);
-    ++(*count);
-  }
-  Track(Track &&o) : count(o.count) {
-    ++(*count);
-    assert(count != nullptr);
-  }
-  Track &operator=(const Track &o) {
-    count = o.count;
-    assert(count != nullptr);
-    ++(*count);
-    return *this;
-  }
-  Track &operator=(Track &&o) {
-    count = o.count;
-    assert(count != nullptr);
-    ++(*count);
-    return *this;
-  }
-  ~Track() {
-    assert(count != nullptr);
-    --(*count);
-  }
-  int *count;
-};
-struct MediumTrack : Track {
-
-  MediumTrack(int &c) : Track(c) {}
-  MediumTrack(const MediumTrack &o) : Track(o) {}
-  MediumTrack(MediumTrack &&o) : Track(std::move(o)) {}
-  MediumTrack &operator=(const MediumTrack &o) {
-    Track::operator=(o);
-    return *this;
-  }
-  MediumTrack &operator=(MediumTrack &&o) {
-    Track::operator=(std::move(o));
-    return *this;
-  }
-  ~MediumTrack() = default;
-
-private:
-  std::byte data_[64]{};
-};
-struct MediumTrack2 : Track {
-
-  MediumTrack2(int &c) : Track(c) {}
-  MediumTrack2(const MediumTrack2 &o) : Track(o) {}
-  MediumTrack2(MediumTrack2 &&o) : Track(std::move(o)) {}
-  MediumTrack2 &operator=(const MediumTrack2 &o) {
-    Track::operator=(o);
-    return *this;
-  }
-  MediumTrack2 &operator=(MediumTrack2 &&o) {
-    Track::operator=(std::move(o));
-    return *this;
-  }
-  ~MediumTrack2() = default;
-
-private:
-  alignas(64) std::byte data_[32]{};
-};
-struct BigTrack : Track {
-
-  BigTrack(int &c) : Track(c) {}
-  BigTrack(const BigTrack &o) : Track(o) {}
-  BigTrack(BigTrack &&o) : Track(std::move(o)) {}
-  BigTrack &operator=(const BigTrack &o) {
-    Track::operator=(o);
-    return *this;
-  }
-  BigTrack &operator=(BigTrack &&o) {
-    Track::operator=(std::move(o));
-    return *this;
-  }
-  ~BigTrack() = default;
-
-private:
-  std::byte data_[256]{};
-};
 TEST_CASE("ref_storage", "[storage]") {
-  tracker a;
-  REQUIRE(tracker::alive == 1);
+  int count = 0;
+  Tracker<64, 8> a(count);
+  REQUIRE(count == 1);
   {
     poly::ref_storage s;
     REQUIRE(s.data() == nullptr);
     s.emplace(a);
-    REQUIRE(tracker::alive == 1);
+    REQUIRE(count == 1);
     REQUIRE(s.data() == &a);
     s.reset();
     REQUIRE(s.data() == nullptr);
   }
-  REQUIRE(tracker::alive == 1);
+  REQUIRE(count == 1);
 }
 
 /// covers:
@@ -767,7 +693,7 @@ TEMPLATE_TEST_CASE("copy sbo storage of different sizes", "[storage]", A, B,
           int count = 0;
           int count2 = 0;
           const Storage1 bs{SmallObject(count)};
-          Storage2 ss{Track(count2)};
+          Storage2 ss{SmallObject(count2)};
           REQUIRE(count == 1);
           REQUIRE(count2 == 1);
           ss = bs;
@@ -778,7 +704,7 @@ TEMPLATE_TEST_CASE("copy sbo storage of different sizes", "[storage]", A, B,
           int count = 0;
           int count2 = 0;
           const Storage1 bs{MediumObject(count)};
-          Storage2 ss{Track(count2)};
+          Storage2 ss{SmallObject(count2)};
           REQUIRE(count == 1);
           REQUIRE(count2 == 1);
           ss = bs;
@@ -805,7 +731,7 @@ TEMPLATE_TEST_CASE("copy sbo storage of different sizes", "[storage]", A, B,
           int count = 0;
           int count2 = 0;
           const Storage1 bs{LargeObject(count)};
-          Storage2 ss{Track(count2)};
+          Storage2 ss{SmallObject(count2)};
           REQUIRE(count == 1);
           REQUIRE(count2 == 1);
           ss = bs;
@@ -929,7 +855,7 @@ TEMPLATE_TEST_CASE("copy sbo storage of different sizes", "[storage]", A, B,
           int count = 0;
           int count2 = 0;
           const Storage2 ss{MediumObject(count)};
-          Storage1 bs{Track(count2)};
+          Storage1 bs{SmallObject(count2)};
           REQUIRE(count == 1);
           REQUIRE(count2 == 1);
           bs = ss;
@@ -940,7 +866,7 @@ TEMPLATE_TEST_CASE("copy sbo storage of different sizes", "[storage]", A, B,
           int count = 0;
           int count2 = 0;
           const Storage2 ss{OverAlignedSmallObject(count)};
-          Storage1 bs{Track(count2)};
+          Storage1 bs{SmallObject(count2)};
           REQUIRE(count == 1);
           REQUIRE(count2 == 1);
           bs = ss;
@@ -951,7 +877,7 @@ TEMPLATE_TEST_CASE("copy sbo storage of different sizes", "[storage]", A, B,
           int count = 0;
           int count2 = 0;
           const Storage2 ss{OverAlignedLargeObject(count)};
-          Storage1 bs{Track(count2)};
+          Storage1 bs{SmallObject(count2)};
           REQUIRE(count == 1);
           REQUIRE(count2 == 1);
           bs = ss;
@@ -962,7 +888,7 @@ TEMPLATE_TEST_CASE("copy sbo storage of different sizes", "[storage]", A, B,
           int count = 0;
           int count2 = 0;
           const Storage2 ss{LargeObject(count)};
-          Storage1 bs{Track(count2)};
+          Storage1 bs{SmallObject(count2)};
           REQUIRE(count == 1);
           REQUIRE(count2 == 1);
           bs = ss;

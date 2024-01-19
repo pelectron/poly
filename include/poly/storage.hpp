@@ -221,8 +221,7 @@ public:
 
   /// construct with a T
   template <typename T, typename = std::enable_if_t<
-                            not(poly::traits::is_storage_v<std::decay_t<T>> or
-                                detail::is_local_storage<std::decay_t<T>>)>>
+                            not(poly::is_storage_v<std::decay_t<T>>)>>
   constexpr basic_local_storage(T &&t) noexcept(
       std::is_nothrow_constructible_v<std::decay_t<T>, T &&>) {
     this->emplace<std::decay_t<T>>(std::forward<T>(t));
@@ -375,9 +374,11 @@ private:
 /// @tparam Size  size of the internal buffer in bytes
 /// @tparam Alignment alignment of internal buffer in bytes
 template <std::size_t Size, std::size_t Alignment>
-class local_storage final : public basic_local_storage<true, Size, Alignment> {
+class local_storage final : private basic_local_storage<true, Size, Alignment> {
 public:
   using Base = basic_local_storage<true, Size, Alignment>;
+  using Base::data;
+  using Base::emplace;
 
   /// construct empty storage
   constexpr local_storage() noexcept : Base() {}
@@ -410,6 +411,7 @@ public:
     Base::operator=(s);
     return *this;
   }
+  /// copy assignment
   constexpr local_storage &operator=(const local_storage &s) {
     Base::operator=(s);
     return *this;
@@ -425,7 +427,7 @@ public:
 /// @tparam Alignment alignment of internal buffer in bytes
 template <std::size_t Size, std::size_t Alignment>
 class move_only_local_storage final
-    : public basic_local_storage<false, Size, Alignment> {
+    : private basic_local_storage<false, Size, Alignment> {
 public:
   using Base = basic_local_storage<false, Size, Alignment>;
   using Base::data;
@@ -451,7 +453,8 @@ public:
 
   /// move assignment
   template <size_t S, size_t A>
-  constexpr move_only_local_storage &operator=(move_only_local_storage<S, A> &&s) {
+  constexpr move_only_local_storage &
+  operator=(move_only_local_storage<S, A> &&s) {
     Base::operator=(std::move(s));
     return *this;
   }
@@ -459,21 +462,6 @@ public:
   /// deleted copy assignment
   move_only_local_storage &operator=(const move_only_local_storage &s) = delete;
 };
-
-static_assert(poly::traits::is_storage_v<local_storage<32, 8>>);
-static_assert(poly::traits::is_storage_v<local_storage<64, 4>>);
-static_assert(poly::traits::is_storage_v<move_only_local_storage<32, 8>>);
-static_assert(poly::traits::is_storage_v<move_only_local_storage<64, 4>>);
-
-static_assert(std::is_copy_constructible_v<local_storage<32, 8>>);
-static_assert(std::is_copy_assignable_v<local_storage<32, 8>>);
-static_assert(std::is_move_constructible_v<local_storage<32, 8>>);
-static_assert(std::is_move_assignable_v<local_storage<32, 8>>);
-
-static_assert(not std::is_copy_constructible_v<move_only_local_storage<32, 8>>);
-static_assert(not std::is_copy_assignable_v<move_only_local_storage<32, 8>>);
-static_assert(std::is_move_constructible_v<move_only_local_storage<32, 8>>);
-static_assert(std::is_move_assignable_v<move_only_local_storage<32, 8>>);
 
 /// storage with small buffer optimization implementation. Emplaced objects are
 /// allocated within a buffer of Size with alignment Alignment if the object
@@ -486,6 +474,7 @@ class basic_sbo_storage {
 public:
   template <bool C, std::size_t S, std::size_t A>
   friend class basic_sbo_storage;
+  template <std::size_t S, std::size_t A> friend class sbo_storage;
 
   constexpr basic_sbo_storage() noexcept {}
   basic_sbo_storage(ref_storage) = delete;
@@ -710,8 +699,10 @@ private:
 /// @tparam Size  size of the internal buffer in bytes
 /// @tparam Alignment alignment of internal buffer in bytes
 template <std::size_t Size, std::size_t Alignment>
-class sbo_storage final : public basic_sbo_storage<true, Size, Alignment> {
+class sbo_storage final : private basic_sbo_storage<true, Size, Alignment> {
 public:
+  template <std::size_t S, std::size_t A> friend class sbo_storage;
+
   using Base = basic_sbo_storage<true, Size, Alignment>;
   using Base::data;
   using Base::emplace;
@@ -733,7 +724,7 @@ public:
   /// copy ctor
   constexpr sbo_storage(const sbo_storage &s) : Base(s) {}
   template <size_t S, size_t A>
-  constexpr sbo_storage(const sbo_storage<S, A> &s) : Base(s) {}
+  constexpr sbo_storage(const sbo_storage<S, A> &s) : Base(s.base()) {}
 
   /// move assignemnt
   template <size_t S, size_t A>
@@ -744,14 +735,18 @@ public:
 
   /// copy assignemnt
   constexpr sbo_storage &operator=(const sbo_storage &s) {
-    Base::operator=(s);
+    Base::operator=(s.base());
     return *this;
   }
   template <size_t S, size_t A>
   constexpr sbo_storage &operator=(const sbo_storage<S, A> &s) {
-    Base::operator=(s);
+    Base::operator=(s.base());
     return *this;
   }
+
+private:
+  Base &base() & noexcept { return *this; }
+  const Base &base() const & noexcept { return *this; }
 };
 
 /// Move only storage with small buffer optimization.
@@ -763,7 +758,7 @@ public:
 /// @tparam Alignment alignment of internal buffer in bytes
 template <std::size_t Size, std::size_t Alignment>
 class move_only_sbo_storage final
-    : public basic_sbo_storage<false, Size, Alignment> {
+    : private basic_sbo_storage<false, Size, Alignment> {
 public:
   using Base = basic_sbo_storage<false, Size, Alignment>;
   using Base::data;
@@ -801,19 +796,5 @@ public:
   move_only_sbo_storage &operator=(const move_only_sbo_storage &s) = delete;
 };
 
-static_assert(poly::traits::is_storage_v<sbo_storage<32, 8>>);
-static_assert(poly::traits::is_storage_v<sbo_storage<64, 4>>);
-static_assert(poly::traits::is_storage_v<move_only_sbo_storage<32, 8>>);
-static_assert(poly::traits::is_storage_v<move_only_sbo_storage<64, 4>>);
-
-static_assert(std::is_copy_constructible_v<sbo_storage<32, 8>>);
-static_assert(std::is_copy_assignable_v<sbo_storage<32, 8>>);
-static_assert(std::is_move_constructible_v<sbo_storage<32, 8>>);
-static_assert(std::is_move_assignable_v<sbo_storage<32, 8>>);
-
-static_assert(not std::is_copy_constructible_v<move_only_sbo_storage<32, 8>>);
-static_assert(not std::is_copy_assignable_v<move_only_sbo_storage<32, 8>>);
-static_assert(std::is_move_constructible_v<move_only_sbo_storage<32, 8>>);
-static_assert(std::is_move_assignable_v<move_only_sbo_storage<32, 8>>);
 } // namespace poly
 #endif
