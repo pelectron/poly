@@ -14,11 +14,12 @@ foreach o: opts
 endforeach
 
 test_exe = executable('main', 
-                      sources:[ 'tests/interface.cpp', 
+                      sources:[ 'tests/function.cpp',
+                                'tests/interface.cpp', 
                                 'tests/methods.cpp',
                                 'tests/properties.cpp',
                                 'tests/storage.cpp'],
                       include_directories:inc,
-                      cpp_args:args,
+                      cpp_args:args+['-ftemplate-backtrace-limit=0', '-ferror-limit=1'],
                       dependencies:catch_dep)
 test('poly unit tests', test_exe)
