@@ -1,6 +1,8 @@
 #ifndef POLY_STRORAGE_HPP
 #define POLY_STRORAGE_HPP
 #include "poly/traits.hpp"
+
+#include <memory>
 #include <new>
 
 namespace poly {
@@ -167,10 +169,10 @@ inline constexpr sbo_resource_table<Copyable> sbo_table_for =
 class ref_storage final {
 public:
   template <typename T,
-            typename = std::enable_if_t<not(poly::traits::is_storage_v<T>)>>
+            typename = std::enable_if_t<not(poly::is_storage_v<T>)>>
   constexpr ref_storage(T &t) noexcept : ref_{std::addressof(t)} {}
 
-  template <POLY_STORAGE Storage, typename S = Storage,
+  template <typename Storage, typename S = Storage,
             typename = std::enable_if_t<poly::traits::is_storage_v<S>>>
   constexpr ref_storage(Storage &s) noexcept : ref_{s.data()} {}
 
@@ -463,9 +465,11 @@ public:
   move_only_local_storage &operator=(const move_only_local_storage &s) = delete;
 };
 
-/// storage with small buffer optimization implementation. Emplaced objects are
-/// allocated within a buffer of Size with alignment Alignment if the object
-/// satisfies these constraints, else it is heap allocated.
+/// storage with small buffer optimization implementation.
+///
+/// Emplaced objects are allocated within a buffer of Size with alignment
+/// Alignment if the object satisfies these constraints, else it is heap
+/// allocated.
 /// @tparam Copyable specify if the storage is copyable
 /// @tparam Size  size of the internal buffer in bytes
 /// @tparam Alignment alignment of internal buffer in bytes
@@ -546,7 +550,8 @@ public:
 
   template <typename T, typename... Args>
   constexpr T &emplace(Args &&...args) noexcept(
-      std::is_nothrow_constructible_v<T, Args...>) {
+      std::is_nothrow_constructible_v<T, Args...> and sizeof(T) <= Size and
+      alignof(T) <= Alignment) {
     reset();
     T *ret = nullptr;
     if constexpr (sizeof(T) <= Size and alignof(T) <= Alignment) {
