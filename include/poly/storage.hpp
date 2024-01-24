@@ -18,18 +18,33 @@ template <std::size_t Size, std::size_t Alignment = alignof(std::max_align_t)>
 class local_storage;
 template <std::size_t Size, std::size_t Alignment = alignof(std::max_align_t)>
 class move_only_local_storage;
+template <std::size_t Size, std::size_t Alignment = alignof(std::max_align_t)>
+class sbo_storage;
+template <std::size_t Size, std::size_t Alignment = alignof(std::max_align_t)>
+class move_only_sbo_storage;
 
 namespace detail {
 template <typename T> inline constexpr bool is_local_storage = false;
-
-template <bool Copyable, std::size_t Size, std::size_t Alignment>
-inline constexpr bool
-    is_local_storage<basic_local_storage<Copyable, Size, Alignment>> = true;
 template <std::size_t Size, std::size_t Alignment>
 inline constexpr bool is_local_storage<local_storage<Size, Alignment>> = true;
+
+template <typename T> inline constexpr bool is_move_only_local_storage = false;
 template <std::size_t Size, std::size_t Alignment>
 inline constexpr bool
-    is_local_storage<move_only_local_storage<Size, Alignment>> = true;
+    is_move_only_local_storage<move_only_local_storage<Size, Alignment>> = true;
+
+template <typename T> inline constexpr bool is_basic_sbo_storage = false;
+template <std::size_t Size, std::size_t Alignment>
+inline constexpr bool is_basic_sbo_storage<basic_sbo_storage<Size, Alignment>> =
+    true;
+template <typename T> inline constexpr bool is_sbo_storage = false;
+template <std::size_t Size, std::size_t Alignment>
+inline constexpr bool is_sbo_storage<sbo_storage<Size, Alignment>> = true;
+
+template <typename T> inline constexpr bool is_move_only_sbo_storage = false;
+template <std::size_t Size, std::size_t Alignment>
+inline constexpr bool
+    is_move_only_sbo_storage<move_only_sbo_storage<Size, Alignment>> = true;
 
 /// table of function pointers for resource managment used by local_storage
 template <bool Copyable> struct resource_table {
@@ -169,7 +184,7 @@ inline constexpr sbo_resource_table<Copyable> sbo_table_for =
 class ref_storage final {
 public:
   template <typename T,
-            typename = std::enable_if_t<not(poly::is_storage_v<T>)>>
+            typename = std::enable_if_t<not std::is_base_of_v<ref_storage, T>>>
   constexpr ref_storage(T &t) noexcept : ref_{std::addressof(t)} {}
 
   template <typename Storage, typename S = Storage,
@@ -222,12 +237,19 @@ public:
   basic_local_storage(ref_storage) = delete;
 
   /// construct with a T
-  template <typename T, typename = std::enable_if_t<
-                            not(poly::is_storage_v<std::decay_t<T>>)>>
-  constexpr basic_local_storage(T &&t) noexcept(
-      std::is_nothrow_constructible_v<std::decay_t<T>, T &&>) {
-    this->emplace<std::decay_t<T>>(std::forward<T>(t));
-  }
+  // template <typename T,
+  //           typename = std::enable_if_t<
+  //               not(detail::is_local_storage<std::decay_t<T>> or
+  //                   std::is_base_of_v<basic_local_storage,
+  //                   std::decay_t<T>>)>>
+  // constexpr basic_local_storage(T &&t) noexcept(
+  //     std::is_nothrow_constructible_v<std::decay_t<T>, T &&>) {
+  //   static_assert(
+  //       not poly::is_storage_v<std::decay_t<T>>,
+  //       "Cannot construct basic_local_storage from another unrelated
+  //       Storage");
+  //   this->emplace<std::decay_t<T>>(std::forward<T>(t));
+  // }
 
   /// copy ctor
   template <std::size_t S, std::size_t A, bool C = Copyable>
@@ -376,7 +398,7 @@ private:
 /// @tparam Size  size of the internal buffer in bytes
 /// @tparam Alignment alignment of internal buffer in bytes
 template <std::size_t Size, std::size_t Alignment>
-class local_storage final : private basic_local_storage<true, Size, Alignment> {
+class local_storage final : public basic_local_storage<true, Size, Alignment> {
 public:
   using Base = basic_local_storage<true, Size, Alignment>;
   using Base::data;
@@ -386,11 +408,11 @@ public:
   constexpr local_storage() noexcept : Base() {}
 
   /// construct with a T
-  template <typename T, typename = std::enable_if_t<
-                            not(poly::traits::is_storage_v<std::decay_t<T>>)>>
-  constexpr local_storage(T &&t) noexcept(
-      std::is_nothrow_constructible_v<std::decay_t<T>, T &&>)
-      : Base(std::forward<T>(t)) {}
+  // template <typename T, typename = std::enable_if_t<
+  //                           not poly::is_storage_v<std::decay_t<T>>>>
+  // constexpr local_storage(T &&t) noexcept(
+  //     std::is_nothrow_constructible_v<std::decay_t<T>, T &&>)
+  //     : Base(std::forward<T>(t)) {}
 
   /// move ctor
   constexpr local_storage(local_storage &&s) : Base(std::move(s)) {}
@@ -429,7 +451,7 @@ public:
 /// @tparam Alignment alignment of internal buffer in bytes
 template <std::size_t Size, std::size_t Alignment>
 class move_only_local_storage final
-    : private basic_local_storage<false, Size, Alignment> {
+    : public basic_local_storage<false, Size, Alignment> {
 public:
   using Base = basic_local_storage<false, Size, Alignment>;
   using Base::data;
@@ -439,11 +461,11 @@ public:
   constexpr move_only_local_storage() noexcept : Base() {}
 
   /// construct with a T
-  template <typename T, typename = std::enable_if_t<
-                            not(poly::traits::is_storage_v<std::decay_t<T>>)>>
-  constexpr move_only_local_storage(T &&t) noexcept(
-      std::is_nothrow_move_constructible_v<std::decay_t<T>>)
-      : Base(std::move(t)) {}
+  // template <typename T, typename = std::enable_if_t<
+  //                           not poly::is_storage_v<std::decay_t<T>>>>
+  // constexpr move_only_local_storage(T &&t) noexcept(
+  //     std::is_nothrow_move_constructible_v<std::decay_t<T>>)
+  //     : Base(std::move(t)) {}
 
   /// move ctor
   template <size_t S, size_t A>
@@ -483,12 +505,12 @@ public:
   constexpr basic_sbo_storage() noexcept {}
   basic_sbo_storage(ref_storage) = delete;
 
-  template <typename T, typename = std::enable_if_t<
-                            not poly::traits::is_storage_v<std::decay_t<T>>>>
-  constexpr basic_sbo_storage(T &&t) noexcept(
-      std::is_nothrow_constructible_v<std::decay_t<T>, T &&>) {
-    this->template emplace<std::decay_t<T>>(std::forward<T>(t));
-  }
+  // template <typename T, typename = std::enable_if_t<
+  //                           not detail::is_basic_sbo_storage<std::decay_t<T>>>>
+  // constexpr basic_sbo_storage(T &&t) noexcept(
+  //     std::is_nothrow_constructible_v<std::decay_t<T>, T &&>) {
+  //   this->template emplace<std::decay_t<T>>(std::forward<T>(t));
+  // }
 
   /// copy ctor for copyable sbo storage
   template <size_t S, size_t A>
@@ -704,7 +726,7 @@ private:
 /// @tparam Size  size of the internal buffer in bytes
 /// @tparam Alignment alignment of internal buffer in bytes
 template <std::size_t Size, std::size_t Alignment>
-class sbo_storage final : private basic_sbo_storage<true, Size, Alignment> {
+class sbo_storage final : public basic_sbo_storage<true, Size, Alignment> {
 public:
   template <std::size_t S, std::size_t A> friend class sbo_storage;
 
@@ -716,20 +738,21 @@ public:
   constexpr sbo_storage() noexcept : Base() {}
 
   /// construct with a T
-  template <typename T, typename = std::enable_if_t<
-                            not(poly::traits::is_storage_v<std::decay_t<T>>)>>
-  constexpr sbo_storage(T &&t) noexcept(
-      std::is_nothrow_constructible_v<std::decay_t<T>, T &&>)
-      : Base(std::forward<T>(t)) {}
+  // template <typename T, typename = std::enable_if_t<
+  //                           not detail::is_sbo_storage<std::decay_t<T>>>>
+  // constexpr sbo_storage(T &&t) noexcept(
+  //     std::is_nothrow_constructible_v<std::decay_t<T>, T &&>)
+  //     : Base(std::forward<T>(t)) {}
 
   /// move ctor
   template <size_t S, size_t A>
   constexpr sbo_storage(sbo_storage<S, A> &&s) : Base(std::move(s)) {}
+  constexpr sbo_storage(sbo_storage &&s) : Base(std::move(s)) {}
 
   /// copy ctor
   constexpr sbo_storage(const sbo_storage &s) : Base(s) {}
   template <size_t S, size_t A>
-  constexpr sbo_storage(const sbo_storage<S, A> &s) : Base(s.base()) {}
+  constexpr sbo_storage(const sbo_storage<S, A> &s) : Base(s) {}
 
   /// move assignemnt
   template <size_t S, size_t A>
@@ -740,18 +763,15 @@ public:
 
   /// copy assignemnt
   constexpr sbo_storage &operator=(const sbo_storage &s) {
-    Base::operator=(s.base());
+    Base::operator=(s);
     return *this;
   }
   template <size_t S, size_t A>
   constexpr sbo_storage &operator=(const sbo_storage<S, A> &s) {
-    Base::operator=(s.base());
+    Base::operator=(s);
     return *this;
   }
 
-private:
-  Base &base() & noexcept { return *this; }
-  const Base &base() const & noexcept { return *this; }
 };
 
 /// Move only storage with small buffer optimization.
@@ -763,7 +783,7 @@ private:
 /// @tparam Alignment alignment of internal buffer in bytes
 template <std::size_t Size, std::size_t Alignment>
 class move_only_sbo_storage final
-    : private basic_sbo_storage<false, Size, Alignment> {
+    : public basic_sbo_storage<false, Size, Alignment> {
 public:
   using Base = basic_sbo_storage<false, Size, Alignment>;
   using Base::data;
@@ -772,11 +792,11 @@ public:
   constexpr move_only_sbo_storage() noexcept : Base() {}
 
   /// construct with a T
-  template <typename T, typename = std::enable_if_t<
-                            not(poly::traits::is_storage_v<std::decay_t<T>>)>>
-  constexpr move_only_sbo_storage(T &&t) noexcept(
-      std::is_nothrow_move_constructible_v<std::decay_t<T>>)
-      : Base(std::move(t)) {}
+  // template <typename T, typename = std::enable_if_t<
+  //                           not poly::is_storage_v<std::decay_t<T>>>>
+  // constexpr move_only_sbo_storage(T &&t) noexcept(
+  //     std::is_nothrow_move_constructible_v<std::decay_t<T>>)
+  //     : Base(std::forward<T>(t)) {}
 
   /// move ctor
   template <size_t S, size_t A>
@@ -793,6 +813,10 @@ public:
   // }
   template <size_t S, size_t A>
   constexpr move_only_sbo_storage &operator=(move_only_sbo_storage<S, A> &&s) {
+    Base::operator=(std::move(s));
+    return *this;
+  }
+  constexpr move_only_sbo_storage &operator=(move_only_sbo_storage &&s) {
     Base::operator=(std::move(s));
     return *this;
   }

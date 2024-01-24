@@ -50,7 +50,7 @@ struct is_storage_impl<
       std::is_same_v<void *, decltype(std::declval<T>().data())>;
   static constexpr bool has_const_data =
       std::is_same_v<const void *, decltype(std::declval<const T>().data())>;
-  static constexpr bool value = has_data && has_const_data;
+  static constexpr bool value = has_data && has_const_data and is_moveable_v<T>;
 };
 
 template <typename T> struct is_storage : public is_storage_impl<T, void> {};
@@ -239,7 +239,7 @@ inline constexpr bool is_property_spec_v = is_property_spec<T>::value;
 /// @addtogroup traits type traits
 /// @{
 
-/// @addtogroup property_traits PropertySpec Concept
+/// @addtogroup PropertySpec PropertySpec Concept
 /// A PropertySpec defines the name of a property and its value type. It is a
 /// function type with the following allowed patterns:
 /// - 'PropertyName(ValueType)': a read/write property with name PropertyName
