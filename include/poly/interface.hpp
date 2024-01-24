@@ -2,154 +2,190 @@
 #define POLY_INTERFACE_HPP
 #include "poly/config.hpp"
 
-#include "poly/ptable.hpp"
+#include "poly/method.hpp"
+#include "poly/traits.hpp"
+#include "poly/property.hpp"
 #include "poly/storage.hpp"
-#include "poly/vtable.hpp"
 #include <cstddef>
 
 namespace poly {
+namespace detail {} // namespace detail
+template <typename Storage, typename T, typename... Args>
+inline constexpr bool nothrow_emplaceable_v = noexcept(
+    std::declval<Storage>().template emplace<T>(std::declval<Args>()...));
 
 template <POLY_STORAGE StorageType, typename PropertySpecs,
           typename MethodSpecs>
 class basic_interface;
 
-template <typename PropertySpecs, typename MethodSpecs, size_t Size,
-          size_t Alignment = alignof(std::max_align_t)>
+template <typename PropertySpecs, typename MethodSpecs, std::size_t Size,
+          std::size_t Alignment = alignof(std::max_align_t)>
 class Object;
 
-template <typename PropertySpecs, typename MethodSpecs, size_t Size,
-          size_t Alignment = alignof(std::max_align_t)>
+template <typename PropertySpecs, typename MethodSpecs, std::size_t Size,
+          std::size_t Alignment = alignof(std::max_align_t)>
 class MoveOnlyObject;
 
-template <typename PropertySpecs, typename MethodSpecs, size_t Size,
-          size_t Alignment = alignof(std::max_align_t)>
+template <typename PropertySpecs, typename MethodSpecs, std::size_t Size,
+          std::size_t Alignment = alignof(std::max_align_t)>
 class SboObject;
 
-template <typename PropertySpecs, typename MethodSpecs, size_t Size,
-          size_t Alignment = alignof(std::max_align_t)>
+template <typename PropertySpecs, typename MethodSpecs, std::size_t Size,
+          std::size_t Alignment = alignof(std::max_align_t)>
 class SboMoveOnlyObject;
 
 template <typename PropertySpecs, typename MethodSpecs> class Interface;
 
-template <POLY_STORAGE StorageType, typename... PropertySpecs,
-          typename... MethodSpecs>
-class basic_interface<StorageType, poly::type_list<PropertySpecs...>,
-                      poly::type_list<MethodSpecs...>>
-    : public detail::PropertyInjector<
-          PropertySpecs,
-          basic_interface<StorageType, poly::type_list<PropertySpecs...>,
-                          poly::type_list<MethodSpecs...>>>...,
-      public detail::MethodInjector<
-          MethodSpecs,
-          basic_interface<StorageType, poly::type_list<PropertySpecs...>,
-                          poly::type_list<MethodSpecs...>>>... {
+template <POLY_STORAGE StorageType, typename PropertySpecs,
+          typename MethodSpecs>
+class basic_interface
+    : public detail::PropertyContainer<
+          basic_interface<StorageType, PropertySpecs, MethodSpecs>,
+          PropertySpecs>,
+      public detail::MethodContainer<
+          basic_interface<StorageType, PropertySpecs, MethodSpecs>,
+          MethodSpecs> {
+  using P = detail::PropertyContainer<
+      basic_interface<StorageType, PropertySpecs, MethodSpecs>, PropertySpecs>;
+
 public:
-  using self_type =
-      basic_interface<StorageType, poly::type_list<PropertySpecs...>,
-                      poly::type_list<MethodSpecs...>>;
-  using properties = poly::type_list<PropertySpecs...>;
-  using methods = poly::type_list<MethodSpecs...>;
-  static_assert(poly::traits::is_storage_v<StorageType>,
+  template <typename Self, typename ListOfSpecs, typename>
+  friend class poly::detail::MethodContainerImpl;
+  template <typename Self, typename ListOfPropertySpecs>
+  friend class poly::detail::PropertyContainer;
+
+  using method_specs = MethodSpecs;
+  using property_specs =PropertySpecs;
+
+  static_assert(poly::is_type_list_v<PropertySpecs>,
+                "The PropertySpecs must be provided as a poly::type_list of "
+                "PropertySpec.");
+  static_assert(
+      poly::is_type_list_v<MethodSpecs>,
+      "The MethodSpecs must be provided as a poly::type_list of MethodSpec.");
+  static_assert(poly::is_storage_v<StorageType>,
                 "StorageType must satisfy the Storage concept.");
   static_assert(
-      (poly::traits::is_property_spec_v<PropertySpecs> && ...),
-      "The provided PropertySpecs must be valid PropertySpecs, i.e. a funcion "
-      "type with signature [const] PropertyName(Type) [noexcept].");
-  static_assert(
-      (poly::traits::is_method_spec_v<MethodSpecs> && ...),
+      poly::conjunction_v<
+          poly::transform_t<MethodSpecs, traits::is_method_spec>>,
       "The provided MethodSpecs must be valid MethodSpecs, i.e. a function "
       "type with signature Ret(MethodName, Args...)[const noexcept].");
-
+  static_assert(
+      poly::conjunction_v<
+          poly::transform_t<PropertySpecs, traits::is_property_spec>>,
+      "The provided MethodSpecs must be valid MethodSpecs, i.e. a function "
+      "type with signature Ret(MethodName, Args...)[const noexcept].");
   basic_interface() = delete;
 
-  template <typename S = StorageType,
-            typename = std::enable_if_t<std::is_copy_constructible_v<S>>>
-  basic_interface(const basic_interface &other)
-      : vtable_(other.vtable_), ptable_(other.ptable_),
-        storage_(other.storage_) {}
-
-  template <POLY_STORAGE OtherStorage,
+  /// copy ctor
+  template <typename OtherStorage,
             typename = std::enable_if_t<
-                std::is_constructible_v<StorageType, OtherStorage>>>
-  basic_interface(basic_interface<OtherStorage, properties, methods> &other)
-      : vtable_(other.vtable_), ptable_(other.ptable_),
-        storage_(other.storage_) {}
+                std::is_constructible_v<StorageType, const OtherStorage &>>>
+  basic_interface(
+      const basic_interface<OtherStorage, PropertySpecs, MethodSpecs> &
+          other) noexcept(std::is_nothrow_constructible_v<StorageType,
+                                                          const OtherStorage &>)
+      : P(*this), storage_(other.storage_) {
+    this->set_vtable(other.vtable());
+    this->set_ptable(other.ptable());
+  }
 
-  basic_interface(basic_interface &&) = default;
+  /// ctor for lvalue reference (Storage = ref storage, OtherStorage= any
+  /// storage type)
+  template <typename OtherStorage,
+            typename = std::enable_if_t<
+                std::is_constructible_v<StorageType, OtherStorage &>>>
+  basic_interface(
+      basic_interface<OtherStorage, PropertySpecs, MethodSpecs> &other) noexcept
+      : P(*this), storage_(other.storage_) {
+    this->set_vtable(other.vtable());
+    this->set_ptable(other.ptable());
+  }
 
+  /// move ctor
+  template <typename OtherStorage,
+            typename = std::enable_if_t<
+                std::is_constructible_v<StorageType, OtherStorage &&>>>
+  basic_interface(
+      basic_interface<OtherStorage, PropertySpecs, MethodSpecs>
+          &&other) noexcept(std::is_nothrow_constructible_v<StorageType,
+                                                            OtherStorage &&>)
+      : P(*this), storage_(std::move(other.storage_)) {
+    this->set_vtable(other.vtable());
+    this->set_ptable(other.ptable());
+  }
+
+  /// construct from a T
   template <typename T, typename = std::enable_if_t<
                             not traits::is_storage_v<std::decay_t<T>>>>
-  basic_interface(T &&t)
-      : vtable_(std::addressof(
-            detail::vtable_for<std::decay_t<T>, MethodSpecs...>)),
-        ptable_(std::addressof(
-            detail::ptable_for<std::decay_t<T>, PropertySpecs...>)),
-        storage_(std::forward<T>(t)) {}
+  basic_interface(T &&t) noexcept(
+      nothrow_emplaceable_v<StorageType, std::decay_t<T>,
+                            decltype(std::forward<T>(std::declval<T &&>()))>)
+      : P(*this) {
+    storage_.template emplace<std::decay_t<T>>(std::forward<T>(t));
+    this->set_vtable(traits::Id<std::decay_t<T>>{});
+    this->set_ptable(traits::Id<std::decay_t<T>>{});
+  }
 
+  /// construct from T by in place constructing T
   template <typename T, typename... Args,
             typename = std::enable_if_t<
                 not std::is_base_of_v<basic_interface, std::decay_t<T>>>>
-  basic_interface(std::in_place_type_t<T>, Args &&...args)
-      : vtable_(std::addressof(detail::vtable_for<T, MethodSpecs...>)),
-        ptable_(std::addressof(detail::ptable_for<T, PropertySpecs...>)) {
+  basic_interface(traits::Id<T>, Args &&...args) noexcept(
+      nothrow_emplaceable_v<
+          StorageType, std::decay_t<T>,
+          decltype(std::forward<Args>(std::declval<Args &&>()))...>)
+      : P(*this) {
     storage_.template emplace<T>(std::forward<Args>(args)...);
+    this->set_vtable(traits::Id<T>{});
+    this->set_ptable(traits::Id<T>{});
   }
 
-  template <typename S = StorageType,
-            typename = std::enable_if_t<std::is_copy_constructible_v<S>>>
-  basic_interface &operator=(const basic_interface &other) {
+  template <typename OtherStorage,
+            typename = std::enable_if_t<
+                std::is_assignable_v<StorageType, const OtherStorage &>>>
+  basic_interface &operator=(
+      const basic_interface<OtherStorage, PropertySpecs, MethodSpecs>
+          &other) noexcept(std::is_nothrow_assignable_v<StorageType,
+                                                        const OtherStorage &>) {
     storage_ = other.storage_;
-    vtable_ = other.vtable_;
-    ptable_ = other.ptable_;
+    this->set_vtable(other.vtable());
+    this->set_ptable(other.ptable());
     return *this;
   }
 
-  basic_interface &operator=(basic_interface &&) = default;
+  template <typename OtherStorage,
+            typename = std::enable_if_t<
+                std::is_assignable_v<StorageType, OtherStorage &&>>>
+  basic_interface &
+  operator=(basic_interface<OtherStorage, PropertySpecs, MethodSpecs> &&
+                other) noexcept(std::is_nothrow_assignable_v<StorageType,
+                                                             OtherStorage &&>) {
+    storage_ = std::move(other.storage_);
+    this->set_vtable(other.vtable());
+    this->set_ptable(other.ptable());
+    return *this;
+  }
 
   template <typename T, typename = std::enable_if_t<not std::is_base_of_v<
                             basic_interface, std::decay_t<T>>>>
-  basic_interface &operator=(T &&t) {
+  basic_interface &operator=(T &&t) noexcept(
+      nothrow_emplaceable_v<StorageType, std::decay_t<T>,
+                            decltype(std::forward<T>(std::declval<T &&>()))>) {
     storage_.template emplace<std::decay_t<T>>(std::forward<T>(t));
-    vtable_ =
-        std::addressof(detail::vtable_for<std::decay_t<T>, MethodSpecs...>);
-    ptable_ =
-        std::addressof(detail::ptable_for<std::decay_t<T>, PropertySpecs...>);
+    this->set_vtable(traits::Id<std::decay_t<T>>{});
+    this->set_ptable(traits::Id<std::decay_t<T>>{});
     return *this;
-  }
-  template <typename T, typename = std::enable_if_t<not std::is_base_of_v<
-                            basic_interface, std::decay_t<T>>>>
-  basic_interface &operator=(const T &t) {
-    storage_.template emplace<std::decay_t<T>>(std::forward<T>(t));
-    vtable_ =
-        std::addressof(detail::vtable_for<std::decay_t<T>, MethodSpecs...>);
-    ptable_ =
-        std::addressof(detail::ptable_for<std::decay_t<T>, PropertySpecs...>);
-    return *this;
-  }
-
-  template <typename Method, typename... Args>
-  decltype(auto) call(Args &&...args) {
-    return (*vtable_)(Method{}, storage_.data(), std::forward<Args>(args)...);
-  }
-  template <typename Method, typename... Args>
-  decltype(auto) call(Args &&...args) const {
-    return (*vtable_)(Method{}, storage_.data(), std::forward<Args>(args)...);
-  }
-  template <typename PropertyName> decltype(auto) get() const {
-    return ptable_->get(PropertyName{}, storage_.data());
-  }
-  template <typename PropertyName, typename Type> void set(const Type &value) {
-    ptable_->set(PropertyName{}, storage_.data(), value);
   }
 
 private:
-  const detail::VTable<MethodSpecs...> *vtable_;
-  const detail::PTable<PropertySpecs...> *ptable_;
+  void *data() noexcept { return storage_.data(); }
+  const void *data() const noexcept { return storage_.data(); }
   StorageType storage_;
 };
 
-template <typename PropertySpecs, typename MethodSpecs, size_t Size,
-          size_t Alignment>
+template <typename PropertySpecs, typename MethodSpecs, std::size_t Size,
+          std::size_t Alignment>
 class Object : public basic_interface<local_storage<Size, Alignment>,
                                       PropertySpecs, MethodSpecs> {
 public:
@@ -170,8 +206,8 @@ public:
   Object &operator=(Object &&) = default;
 };
 
-template <typename PropertySpecs, typename MethodSpecs, size_t Size,
-          size_t Alignment>
+template <typename PropertySpecs, typename MethodSpecs, std::size_t Size,
+          std::size_t Alignment>
 class MoveOnlyObject
     : public basic_interface<move_only_local_storage<Size, Alignment>,
                              PropertySpecs, MethodSpecs> {
@@ -189,8 +225,8 @@ public:
   MoveOnlyObject &operator=(MoveOnlyObject &&) = default;
 };
 
-template <typename PropertySpecs, typename MethodSpecs, size_t Size,
-          size_t Alignment>
+template <typename PropertySpecs, typename MethodSpecs, std::size_t Size,
+          std::size_t Alignment>
 class SboObject : public basic_interface<sbo_storage<Size, Alignment>,
                                          PropertySpecs, MethodSpecs> {
 public:
@@ -207,8 +243,8 @@ public:
   SboObject &operator=(SboObject &&) = default;
 };
 
-template <typename PropertySpecs, typename MethodSpecs, size_t Size,
-          size_t Alignment>
+template <typename PropertySpecs, typename MethodSpecs, std::size_t Size,
+          std::size_t Alignment>
 class SboMoveOnlyObject
     : public basic_interface<move_only_sbo_storage<Size, Alignment>,
                              PropertySpecs, MethodSpecs> {
