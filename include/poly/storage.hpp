@@ -102,11 +102,11 @@ constexpr resource_table<Copyable> get_local_resource_table() noexcept {
     return resource_table<true>{
         //.copy =
         +[](void *dest, const void *src) {
-          ::new (dest) T(*static_cast<const T *>(src));
+          new (dest) T(*static_cast<const T *>(src));
         },
         //.move =
         +[](void *dest, void *src) {
-          ::new (dest) T(std::move(*static_cast<T *>(src)));
+          new (dest) T(std::move(*static_cast<T *>(src)));
         },
         //.destroy =
         +[](void *src) { static_cast<T *>(src)->~T(); }};
@@ -114,7 +114,7 @@ constexpr resource_table<Copyable> get_local_resource_table() noexcept {
     return resource_table<false>{
         //.move =
         +[](void *dest, void *src) {
-          ::new (dest) T(std::move(*static_cast<T *>(src)));
+          new (dest) T(std::move(*static_cast<T *>(src)));
         },
         //.destroy =
         +[](void *src) { static_cast<T *>(src)->~T(); }};
@@ -125,10 +125,10 @@ constexpr resource_table<Copyable> get_local_resource_table() noexcept {
 template <bool Copyable, typename T>
 constexpr sbo_resource_table<Copyable> get_sbo_resource_table() noexcept {
   if constexpr (Copyable) {
-    return sbo_resource_table<Copyable>{
+    return sbo_resource_table<true>{
         // .copy =
         +[](void *dest, const void *src) {
-          ::new (dest) T(*static_cast<const T *>(src));
+          new (dest) T(*static_cast<const T *>(src));
         },
         // .heap_copy =
         +[](const void *src) -> void * {
@@ -136,29 +136,29 @@ constexpr sbo_resource_table<Copyable> get_sbo_resource_table() noexcept {
         },
         // .move =
         +[](void *dest, void *src) {
-          ::new (dest) T(std::move(*static_cast<T *>(src)));
+          new (dest) T(std::move(*static_cast<T *>(src)));
         },
         // .heap_move =
         +[](void *src) -> void * {
-          return ::new T(std::move(*static_cast<T *>(src)));
+          return new T(std::move(*static_cast<T *>(src)));
         },
         // .destroy =
         +[](void *src) { static_cast<T *>(src)->~T(); },
         // .heap_destroy =
-        +[](void *src) { ::delete static_cast<T *>(src); },
+        +[](void *src) { delete static_cast<T *>(src); },
         // .size =
         sizeof(T),
         // .align =
         alignof(T)};
   } else {
-    return sbo_resource_table<Copyable>{
+    return sbo_resource_table<false>{
         // .move =
         +[](void *dest, void *src) {
-          ::new (dest) T(std::move(*static_cast<T *>(src)));
+          new (dest) T(std::move(*static_cast<T *>(src)));
         },
         // .heap_move =
         +[](void *src) -> void * {
-          return ::new T(std::move(*static_cast<T *>(src)));
+          return new T(std::move(*static_cast<T *>(src)));
         },
         // .destroy =
         +[](void *src) { static_cast<T *>(src)->~T(); },
@@ -183,13 +183,9 @@ inline constexpr sbo_resource_table<Copyable> sbo_table_for =
 /// non owing storage. Only contains pointer to object emplaced.
 class ref_storage final {
 public:
-  template <typename T,
-            typename = std::enable_if_t<not std::is_base_of_v<ref_storage, T>>>
-  constexpr ref_storage(T &t) noexcept : ref_{std::addressof(t)} {}
-
-  template <typename Storage, typename S = Storage,
-            typename = std::enable_if_t<poly::traits::is_storage_v<S>>>
-  constexpr ref_storage(Storage &s) noexcept : ref_{s.data()} {}
+  template <typename T>
+  constexpr ref_storage(T &t) noexcept
+      : ref_storage(t, poly::traits::is_storage<T>{}) {}
 
   constexpr ref_storage() noexcept = default;
 
@@ -213,6 +209,14 @@ public:
   constexpr void reset() noexcept { ref_ = nullptr; }
 
 private:
+  template <typename T>
+  constexpr ref_storage(T &t, std::false_type /*is_storage*/)
+      : ref_(std::addressof(t)) {}
+
+  template <POLY_STORAGE Storage>
+  constexpr ref_storage(Storage &s, std::true_type /*is_storage*/)
+      : ref_(s.data()) {}
+
   void *ref_{nullptr};
 };
 
@@ -235,21 +239,6 @@ public:
   constexpr basic_local_storage() noexcept {}
 
   basic_local_storage(ref_storage) = delete;
-
-  /// construct with a T
-  // template <typename T,
-  //           typename = std::enable_if_t<
-  //               not(detail::is_local_storage<std::decay_t<T>> or
-  //                   std::is_base_of_v<basic_local_storage,
-  //                   std::decay_t<T>>)>>
-  // constexpr basic_local_storage(T &&t) noexcept(
-  //     std::is_nothrow_constructible_v<std::decay_t<T>, T &&>) {
-  //   static_assert(
-  //       not poly::is_storage_v<std::decay_t<T>>,
-  //       "Cannot construct basic_local_storage from another unrelated
-  //       Storage");
-  //   this->emplace<std::decay_t<T>>(std::forward<T>(t));
-  // }
 
   /// copy ctor
   template <std::size_t S, std::size_t A, bool C = Copyable>
@@ -302,7 +291,13 @@ public:
   ~basic_local_storage() { reset(); }
 #endif
 
-  /// construct a T with arguments args...
+  /// create a T with arguments args by in place constructing the T with
+  /// placment new inside the local buffer if sizeof(T) <= Size and alignof(T) =
+  /// Alignment.
+  ///
+  /// @tparam T type to store
+  /// @tparam Args arguments for constructing a T
+  /// @returns reference to the stored T
   template <typename T, typename... Args>
   constexpr T &emplace(Args &&...args) noexcept(
       std::is_nothrow_constructible_v<T, Args...>) {
@@ -310,15 +305,15 @@ public:
     static_assert(alignof(T) <= Alignment,
                   "The alignment of T is to large to fit into this");
     reset();
-    T *ret = ::new (std::addressof(buffer_)) T(std::forward<Args>(args)...);
+    T *ret = new (std::addressof(buffer_)) T(std::forward<Args>(args)...);
     vtbl_ = std::addressof(detail::resource_table_for<Copyable, T>);
     return *ret;
   }
 
-  /// get pointer to contained object, or nullptr if no object is contained.
+  /// get pointer to contained object, or nullptr if no object was emplaced.
   constexpr void *data() noexcept { return vtbl_ ? this->as<void>() : nullptr; }
 
-  /// get pointer to contained object, or nullptr if no object is contained.
+  /// get pointer to contained object, or nullptr if no object was emplaced.
   constexpr const void *data() const noexcept {
     return vtbl_ ? this->as<const void>() : nullptr;
   }
@@ -490,7 +485,7 @@ public:
 /// storage with small buffer optimization implementation.
 ///
 /// Emplaced objects are allocated within a buffer of Size with alignment
-/// Alignment if the object satisfies these constraints, else it is heap
+/// Alignment if the object satisfies these constraints, else the object is heap
 /// allocated.
 /// @tparam Copyable specify if the storage is copyable
 /// @tparam Size  size of the internal buffer in bytes
@@ -503,14 +498,6 @@ public:
   template <std::size_t S, std::size_t A> friend class sbo_storage;
 
   constexpr basic_sbo_storage() noexcept {}
-  basic_sbo_storage(ref_storage) = delete;
-
-  // template <typename T, typename = std::enable_if_t<
-  //                           not detail::is_basic_sbo_storage<std::decay_t<T>>>>
-  // constexpr basic_sbo_storage(T &&t) noexcept(
-  //     std::is_nothrow_constructible_v<std::decay_t<T>, T &&>) {
-  //   this->template emplace<std::decay_t<T>>(std::forward<T>(t));
-  // }
 
   /// copy ctor for copyable sbo storage
   template <size_t S, size_t A>
@@ -570,6 +557,15 @@ public:
   ~basic_sbo_storage() { reset(); }
 #endif
 
+  /// create a T with arguments args by either
+  /// - in place constructing the T with placment new inside the local
+  /// buffer is sizeof(T) <= Size and alignof(T) = Alignment, or
+  /// - allocating the T on the heap with operator new if T does not fit inside
+  /// the local buffer
+  ///
+  /// @tparam T type to store
+  /// @tparam Args arguments for constructing a T
+  /// @returns reference to the stored T
   template <typename T, typename... Args>
   constexpr T &emplace(Args &&...args) noexcept(
       std::is_nothrow_constructible_v<T, Args...> and sizeof(T) <= Size and
@@ -577,20 +573,21 @@ public:
     reset();
     T *ret = nullptr;
     if constexpr (sizeof(T) <= Size and alignof(T) <= Alignment) {
-      ret =
-          ::new (std::addressof(buffer.buffer)) T(std::forward<Args>(args)...);
+      ret = new (std::addressof(buffer.buffer)) T(std::forward<Args>(args)...);
     } else {
-      ret = ::new T(std::forward<Args>(args)...);
+      ret = new T(std::forward<Args>(args)...);
       buffer.heap = ret;
     }
     vtbl_ = std::addressof(detail::sbo_table_for<Copyable, T>);
     return *ret;
   }
 
+  /// get pointer to contained object, or nullptr if no object was emplaced.
   constexpr void *data() noexcept {
     return this->contains_value() ? this->as<void>() : nullptr;
   }
 
+  /// get pointer to contained object, or nullptr if no object was emplaced.
   constexpr const void *data() const noexcept {
     return this->contains_value() ? this->as<const void>() : nullptr;
   }
@@ -652,6 +649,7 @@ private:
     other.reset();
     return *this;
   }
+
   template <size_t S, size_t A>
   constexpr basic_sbo_storage &
   copy(const basic_sbo_storage<Copyable, S, A> &other) {
@@ -771,7 +769,6 @@ public:
     Base::operator=(s);
     return *this;
   }
-
 };
 
 /// Move only storage with small buffer optimization.

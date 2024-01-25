@@ -13,16 +13,19 @@
 // include if c++ std > c++17
 #include <concepts>
 #define POLY_STORAGE poly::traits::Storage
+#define POLY_TYPE_LIST poly::traits::TypeList
 #else
 #define POLY_STORAGE typename
+#define POLY_TYPE_LIST typename
 #endif
 
 namespace poly {
+
 namespace traits {
 
 template <typename T>
 inline constexpr bool is_moveable_v =
-    std::is_assignable_v<T, T &&> and std::is_constructible_v<T, T &&>;
+    std::is_move_assignable_v<T> and std::is_move_constructible_v<T>;
 
 class cls {
 public:
@@ -40,34 +43,67 @@ template <typename T> struct is_storage;
 template <typename T, typename = void>
 struct is_storage_impl : std::false_type {};
 
+template <typename T, typename = void>
+struct has_single_lvalue_ref_emplace : std::false_type {};
+template <typename T>
+struct has_single_lvalue_ref_emplace<
+    T,
+    std::void_t<decltype(T{}.template emplace<cls>(std::declval<cls &>()))>> {
+  static constexpr bool value =
+      std::is_same_v<cls &, decltype(T{}.template emplace<cls>(
+                                std::declval<cls &>()))>;
+};
+template <typename T, typename = void>
+struct has_mutli_value_emplace : std::false_type {};
+template <typename T>
+struct has_mutli_value_emplace<
+    T, std::void_t<decltype(T{}.template emplace<cls>(1, 2, 3, 4))>> {
+  static constexpr bool value =
+      std::is_same_v<cls &, decltype(T{}.template emplace<cls>(1, 2, 3, 4))>;
+};
 template <typename T>
 struct is_storage_impl<
     T,
     std::void_t<decltype(std::declval<T>() = std::move(std::declval<T &&>())),
                 decltype(std::declval<T>().data()),
                 decltype(std::declval<const T>().data())>> {
+
   static constexpr bool has_data =
       std::is_same_v<void *, decltype(std::declval<T>().data())>;
   static constexpr bool has_const_data =
       std::is_same_v<const void *, decltype(std::declval<const T>().data())>;
-  static constexpr bool value = has_data && has_const_data and is_moveable_v<T>;
+  static constexpr bool value =
+      has_data && has_const_data && is_moveable_v<T> &&
+      (has_single_lvalue_ref_emplace<T, void>::value or
+       has_mutli_value_emplace<T, void>::value);
 };
 
-template <typename T> struct is_storage : public is_storage_impl<T, void> {};
+template <typename T>
+struct is_storage : public std::conditional_t<is_storage_impl<T, void>::value,
+                                              std::true_type, std::false_type> {
+};
+
+template <typename T> struct is_type_list : std::false_type {};
+
+template <template <typename...> typename L, typename... Ts>
+struct is_type_list<L<Ts...>> : std::true_type {};
+
 #if __cplusplus > 201703L
 // include if c++ std > c++17
 
 /** @concept Storage
- * a brief descitrption of Storage
+ * @see @ref Storage
  */
 template <typename T>
-concept Storage = requires(T t, T other, const T ct, cls cl) {
-  { T{} };
-  { t.data() } -> std::same_as<void *>;
-  { ct.data() } -> std::same_as<const void *>;
-  { t.template emplace<cls>(cl) };
-};
+concept Storage = is_storage<T>::value;
+
 template <typename T> inline constexpr bool is_storage_v = Storage<T>;
+
+template <typename T>
+concept TypeList = is_type_list<T>::value;
+
+template <typename T> inline constexpr bool is_type_list_v = TypeList<T>;
+
 #else
 template <typename T> inline constexpr bool is_storage_v = is_storage<T>::value;
 #endif
@@ -180,18 +216,31 @@ struct func_args<Ret(Args...) const noexcept> {
 
 /// evaluates to true if F is incovable with the signature Sig
 /// @{
-template <typename Sig, typename F> struct invocable;
+template <typename Sig, typename F> struct invocable_r;
 template <typename Ret, typename... Args, typename F>
-struct invocable<Ret(Args...), F> : std::is_invocable_r<Ret, F, Args...> {};
+struct invocable_r<Ret(Args...), F> : std::is_invocable_r<Ret, F, Args...> {};
 template <typename Ret, typename... Args, typename F>
-struct invocable<Ret(Args...) const, F>
+struct invocable_r<Ret(Args...) const, F>
     : std::is_invocable_r<Ret, std::add_const_t<F>, Args...> {};
 template <typename Ret, typename... Args, typename F>
-struct invocable<Ret(Args...) noexcept, F>
+struct invocable_r<Ret(Args...) noexcept, F>
     : std::is_nothrow_invocable_r<Ret, F, Args...> {};
 template <typename Ret, typename... Args, typename F>
-struct invocable<Ret(Args...) const noexcept, F>
+struct invocable_r<Ret(Args...) const noexcept, F>
     : std::is_nothrow_invocable_r<Ret, std::add_const_t<F>, Args...> {};
+
+template <typename Sig, typename F> struct invocable;
+template <typename Ret, typename... Args, typename F>
+struct invocable<Ret(Args...), F> : std::is_invocable<F, Args...> {};
+template <typename Ret, typename... Args, typename F>
+struct invocable<Ret(Args...) const, F>
+    : std::is_invocable<std::add_const_t<F>, Args...> {};
+template <typename Ret, typename... Args, typename F>
+struct invocable<Ret(Args...) noexcept, F>
+    : std::is_nothrow_invocable<F, Args...> {};
+template <typename Ret, typename... Args, typename F>
+struct invocable<Ret(Args...) const noexcept, F>
+    : std::is_nothrow_invocable<std::add_const_t<F>, Args...> {};
 /// @}
 /// @}
 
@@ -358,7 +407,7 @@ inline constexpr bool is_const_method_v =
 /// and move assignable, as well as default constructible. A default constructed
 /// Storage is empty. Moved from Storages are empty and destroy their contained
 /// object before the move operation returns, i.e. before the move
-/// constructor/assignment operator returns  to the caller.
+/// constructor/assignment operator returns to the caller.
 ///
 /// The minimal interface is depicted here:
 ///
@@ -374,21 +423,21 @@ inline constexpr bool is_const_method_v =
 ///   // typical owning storage emplace
 ///   template<typename T,typename...Args>
 ///   T& emplace(Args&&args);
-///   // or
+///   // or below for non owning storage
 ///   template<typename T>
-///   T& emplace(T&& t);
+///   T& emplace(T& t);
 /// };
 /// ```
 /// @{
 
 /// evaluates to true if T satisfies the @ref Storage concept.
 template <typename T>
-inline constexpr bool is_storage_v = traits::is_storage<T>::value;
+inline constexpr bool is_storage_v = traits::is_storage_v<T>;
 /// @}
 
 /// evaluates to true if F is invocable with the signature Sig.
 template <typename Sig, typename F>
-inline constexpr bool is_invocable_v = traits::invocable<Sig, F>::value;
+inline constexpr bool is_invocable_v = traits::invocable_r<Sig, F>::value;
 /// @}
 } // namespace poly
 #endif

@@ -5,24 +5,25 @@ POLY_METHOD(method);
 POLY_METHOD(method2);
 
 POLY_PROPERTY(property);
-class OBJ : public poly::basic_interface<
-                poly::local_storage<32>, PROPERTIES(property(int)),
-                METHODS(int(method), int(method2), int(method2, int),
-                        int(method2, int, float), int(method2, int, double),
-                        void(method2, float))> {
-public:
-  using Base = poly::basic_interface<poly::local_storage<32>, property_specs,
-                                     method_specs>;
-  using Base::Base;
-  using Base::operator=;
-};
+using OBJ =
+    poly::basic_object<poly::sbo_storage<32>, PROPERTIES(property(int)),
+                       METHODS(int(method), int(method2), int(method2, int),
+                               int(method2, int, float),
+                               int(method2, int, double),
+                               void(method2, float))>;
+
+using SubIf =
+    poly::Interface<poly::type_list<>,
+                    METHODS(int(method), int(method2, int),int(method2))>;
 
 using REF = poly::Interface<PROPERTIES(property(int)),
                             METHODS(int(method), int(method2),
                                     int(method2, int), int(method2, int, float),
                                     int(method2, int, double))>;
+
 struct S1 {
   int property;
+  char data_[128];
 };
 
 int extend(method, S1 &) { return 42; }
@@ -51,63 +52,90 @@ TEMPLATE_TEST_CASE("generic interface test", "[interface]", OBJ) {
   S1 s1{79};
   int i = {77};
   S2 s2{&i};
-  If interface(s1);
+  If object(s1);
   SECTION("S1::method") {
-    REQUIRE(interface.template call<method>() == 42);
-    REQUIRE(interface.method() == 42);
+    REQUIRE(object.template call<method>() == 42);
+    REQUIRE(object.method() == 42);
   }
   SECTION("S1::method2") {
     // int()
-    REQUIRE(interface.template call<method2>() == 54);
-    REQUIRE(interface.method2() == 54);
+    REQUIRE(object.template call<method2>() == 54);
+    REQUIRE(object.method2() == 54);
     // int(int)
-    REQUIRE(interface.template call<method2>(41) == 42);
-    REQUIRE(interface.method2(41) == 42);
+    REQUIRE(object.template call<method2>(41) == 42);
+    REQUIRE(object.method2(41) == 42);
     // int(int, float)
-    REQUIRE(interface.template call<method2>(41, 2.0f) == 40);
-    REQUIRE(interface.method2(41, 2.0f) == 40);
+    REQUIRE(object.template call<method2>(41, 2.0f) == 40);
+    REQUIRE(object.method2(41, 2.0f) == 40);
     // int(int, double)
-    REQUIRE(interface.template call<method2>(41, 2.0) == 39);
-    REQUIRE(interface.method2(41, 2.0) == 39);
+    REQUIRE(object.template call<method2>(41, 2.0) == 39);
+    REQUIRE(object.method2(41, 2.0) == 39);
     // interface.method2(2.0f);
   }
   SECTION("S1::property") {
-    REQUIRE(interface.property == 79);
-    interface.property = 55;
-    REQUIRE(interface.property == 55);
-    REQUIRE(interface.template get<property>() == 55);
+    REQUIRE(object.property == 79);
+    object.property = 55;
+    REQUIRE(object.property == 55);
+    REQUIRE(object.template get<property>() == 55);
 
-    interface.template set<property>(22);
-    REQUIRE(interface.template get<property>() == 22);
-    REQUIRE(interface.property == 22);
+    object.template set<property>(22);
+    REQUIRE(object.template get<property>() == 22);
+    REQUIRE(object.property == 22);
   }
-  interface = s2;
+  SECTION("sub interface S1 methods") {
+    SubIf sub_interface{object};
+    REQUIRE(sub_interface.template call<method>() == 42);
+    REQUIRE(sub_interface.method() == 42);
+    // int()
+    REQUIRE(sub_interface.template call<method2>() == 54);
+    REQUIRE(sub_interface.method2() == 54);
+    // int(int)
+    REQUIRE(sub_interface.template call<method2>(41) == 42);
+    REQUIRE(sub_interface.method2(41) == 42);
+  }
+  object = s2;
+  SECTION("S2::method") {
+    REQUIRE(object.template call<method>() == 43);
+    REQUIRE(object.method() == 43);
+  }
   SECTION("S2::method2") {
     // int()
-    REQUIRE(interface.template call<method2>() == 53);
-    REQUIRE(interface.method2() == 53);
+    REQUIRE(object.template call<method2>() == 53);
+    REQUIRE(object.method2() == 53);
     // int(int)
-    REQUIRE(interface.template call<method2>(41) == 43);
-    REQUIRE(interface.method2(41) == 43);
+    REQUIRE(object.template call<method2>(41) == 43);
+    REQUIRE(object.method2(41) == 43);
     // int(int, float)
-    REQUIRE(interface.template call<method2>(41, 2.0f) == 41);
-    REQUIRE(interface.method2(41, 2.0f) == 41);
+    REQUIRE(object.template call<method2>(41, 2.0f) == 41);
+    REQUIRE(object.method2(41, 2.0f) == 41);
     // int(int, double)
-    REQUIRE(interface.template call<method2>(41, 2.0) == 40);
-    REQUIRE(interface.method2(41, 2.0) == 40);
+    REQUIRE(object.template call<method2>(41, 2.0) == 40);
+    REQUIRE(object.method2(41, 2.0) == 40);
+  }
+  SECTION("sub interface S2 methods") {
+    SubIf sub_interface{object};
+    // int method()
+    REQUIRE(sub_interface.template call<method>() == 43);
+    REQUIRE(sub_interface.method() == 43);
+    // int method2()
+    REQUIRE(sub_interface.template call<method2>() == 53);
+    REQUIRE(sub_interface.method2() == 53);
+    // int method2(int)
+    REQUIRE(sub_interface.template call<method2>(41) == 43);
+    REQUIRE(sub_interface.method2(41) == 43);
   }
   SECTION("S2::property") {
     REQUIRE(i == 77);
-    REQUIRE(interface.property == 5);
+    REQUIRE(object.property == 5);
 
-    interface.property = 59;
+    object.property = 59;
     REQUIRE(i == 59);
-    REQUIRE(interface.property == 5);
-    REQUIRE(interface.template get<property>() == 5);
+    REQUIRE(object.property == 5);
+    REQUIRE(object.template get<property>() == 5);
 
-    interface.template set<property>(25);
+    object.template set<property>(25);
     REQUIRE(i == 25);
-    REQUIRE(interface.template get<property>() == 5);
-    REQUIRE(interface.property == 5);
+    REQUIRE(object.template get<property>() == 5);
+    REQUIRE(object.property == 5);
   }
 }

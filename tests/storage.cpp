@@ -3,10 +3,10 @@
 #include <catch2/catch_all.hpp>
 using namespace poly;
 
-static_assert(poly::traits::is_storage_v<local_storage<32, 8>>);
-static_assert(poly::traits::is_storage_v<local_storage<64, 4>>);
-static_assert(poly::traits::is_storage_v<move_only_local_storage<32, 8>>);
-static_assert(poly::traits::is_storage_v<move_only_local_storage<64, 4>>);
+static_assert(poly::is_storage_v<local_storage<32, 8>>);
+static_assert(poly::is_storage_v<local_storage<64, 4>>);
+static_assert(poly::is_storage_v<move_only_local_storage<32, 8>>);
+static_assert(poly::is_storage_v<move_only_local_storage<64, 4>>);
 
 static_assert(std::is_copy_constructible_v<local_storage<32, 8>>);
 static_assert(std::is_copy_assignable_v<local_storage<32, 8>>);
@@ -18,10 +18,10 @@ static_assert(not std::is_copy_assignable_v<move_only_local_storage<32, 8>>);
 static_assert(std::is_move_constructible_v<move_only_local_storage<32, 8>>);
 static_assert(std::is_move_assignable_v<move_only_local_storage<32, 8>>);
 
-static_assert(poly::traits::is_storage_v<sbo_storage<32, 8>>);
-static_assert(poly::traits::is_storage_v<sbo_storage<64, 4>>);
-static_assert(poly::traits::is_storage_v<move_only_sbo_storage<32, 8>>);
-static_assert(poly::traits::is_storage_v<move_only_sbo_storage<64, 4>>);
+static_assert(poly::is_storage_v<sbo_storage<32, 8>>);
+static_assert(poly::is_storage_v<sbo_storage<64, 4>>);
+static_assert(poly::is_storage_v<move_only_sbo_storage<32, 8>>);
+static_assert(poly::is_storage_v<move_only_sbo_storage<64, 4>>);
 
 static_assert(std::is_copy_constructible_v<sbo_storage<32, 8>>);
 static_assert(std::is_copy_assignable_v<sbo_storage<32, 8>>);

@@ -89,12 +89,14 @@ namespace poly {
 /// @addtogroup MethodSpec
 /// @{
 /// extension point for the MethodSpec 'Ret(MethodName,Args...)[noexcept]'.
-template <typename Ret, typename MethodName, typename T, typename... Args>
+template <typename Ret, typename MethodName, typename T, typename... Args,
+          typename = std::enable_if_t<detail::always_false<T>>>
 Ret extend(MethodName, T &t, Args &&...args);
 
 /// extension point for the MethodSpec 'Ret(MethodName,Args...)const
 /// [noexcept]'.
-template <typename Ret, typename MethodName, typename T, typename... Args>
+template <typename Ret, typename MethodName, typename T, typename... Args,
+          typename = std::enable_if_t<detail::always_false<T>>>
 Ret extend(MethodName, const T &t, Args &&...args);
 /// @}
 
@@ -130,7 +132,7 @@ struct MethodInjector<
 /// @}
 /// @}
 
-template <typename Name, typename SpecList> struct build_method_set;
+template <typename Name, POLY_TYPE_LIST SpecList> struct build_method_set;
 template <typename Name, typename... Specs>
 struct build_method_set<Name, type_list<Specs...>> {
   template <typename T> using predicate = std::is_same<Name, method_name_t<T>>;
@@ -149,7 +151,8 @@ struct build_method_set<Name, type_list<Specs...>> {
   using output_list = filter_t<type_list<Specs...>, neg_predicate>;
 };
 
-template <typename NameList, typename SpecList> struct build_method_sets;
+template <POLY_TYPE_LIST NameList, POLY_TYPE_LIST SpecList>
+struct build_method_sets;
 template <> struct build_method_sets<type_list<>, type_list<>> {
   using type = type_list<>;
 };
@@ -175,7 +178,7 @@ struct build_method_sets<type_list<Name, Names...>, type_list<Specs...>> {
 /// - collapse_overloads<type_list<void(m1),void(m2),void(m2,int)>>::type ==
 /// type_list<void(m1),type_list<void(m2),void(m2,int)>>
 ///@{
-template <typename MethodSpecList> struct collapse_overloads;
+template <POLY_TYPE_LIST MethodSpecList> struct collapse_overloads;
 template <> struct collapse_overloads<type_list<>> {
   using type = type_list<>;
 };
@@ -257,11 +260,14 @@ struct VTableEntry<Ret(Method, Args...)> {
       : func(std::addressof(
             trampoline<Ret(Method, Args...)>::template jump<T>)) {}
 
+  constexpr VTableEntry() noexcept {}
+
   constexpr Ret operator()(Method m, void *t, Args... args) const {
     assert(t);
     return (*func)(m, t, std::forward<Args>(args)...);
   }
-  Ret (*func)(Method, void *t, Args...);
+  using func_pointer_t = Ret (*)(Method, void *t, Args...);
+  func_pointer_t func{nullptr};
 };
 
 /// VTable specialization for const method
@@ -272,11 +278,14 @@ struct VTableEntry<Ret(Method, Args...) const> {
       : func(std::addressof(
             trampoline<Ret(Method, Args...) const>::template jump<T>)) {}
 
+  constexpr VTableEntry() noexcept {}
+
   constexpr Ret operator()(Method m, const void *t, Args... args) const {
     assert(t);
     return *func(m, t, std::forward<Args>(args)...);
   }
-  Ret (*func)(Method, const void *t, Args...);
+  using func_pointer_t = Ret (*)(Method, const void *t, Args...);
+  func_pointer_t func{nullptr};
 };
 
 /// VTable specialization for non const noexcept method
@@ -287,11 +296,14 @@ struct VTableEntry<Ret(Method, Args...) noexcept> {
       : func(std::addressof(
             trampoline<Ret(Method, Args...)>::template jump<T>)) {}
 
+  constexpr VTableEntry() noexcept {}
+
   constexpr Ret operator()(Method m, void *t, Args... args) const noexcept {
     assert(t);
     return (*func)(m, t, std::forward<Args>(args)...);
   }
-  Ret (*func)(Method, void *t, Args...) noexcept;
+  using func_pointer_t = Ret (*)(Method, void *t, Args...) noexcept;
+  func_pointer_t func{nullptr};
 };
 
 /// VTable specialization for const noexcept method
@@ -302,22 +314,63 @@ struct VTableEntry<Ret(Method, Args...) const noexcept> {
       : func(std::addressof(
             trampoline<Ret(Method, Args...) const>::template jump<T>)) {}
 
+  constexpr VTableEntry() noexcept {}
+
   constexpr Ret operator()(Method m, const void *t,
                            Args... args) const noexcept {
     assert(t);
     return *func(m, t, std::forward<Args>(args)...);
   }
-  Ret (*func)(Method, const void *t, Args...) noexcept;
+
+  using func_pointer_t = Ret (*)(Method, const void *t, Args...) noexcept;
+  func_pointer_t func{nullptr};
 };
 /// @}
 
+template <typename... MethodSpecs> struct VTable;
+template <typename MemberFunctionPointer> struct extract_signature;
+template <typename R, typename T, typename... A>
+struct extract_signature<R (T::*)(A...)> {
+  using type = R(A...);
+};
+template <typename R, typename T, typename... A>
+struct extract_signature<R (T::*)(A...) const> {
+  using type = R(A...) const;
+};
+template <typename R, typename T, typename... A>
+struct extract_signature<R (T::*)(A...) noexcept> {
+  using type = R(A...) noexcept;
+};
+template <typename R, typename T, typename... A>
+struct extract_signature<R (T::*)(A...) const noexcept> {
+  using type = R(A...) const noexcept;
+};
+
+template <typename T>
+using extract_signature_t = typename extract_signature<T>::type;
+
 /// complete vtable for a set of  @ref MethodSpec "method specs"
 template <typename... MethodSpecs>
-struct VTable : private VTableEntry<MethodSpecs>... {
+struct VTable : public VTableEntry<MethodSpecs>... {
   using VTableEntry<MethodSpecs>::operator()...;
   template <typename T>
   constexpr VTable(poly::traits::Id<T> id) noexcept
       : VTableEntry<MethodSpecs>(id)... {}
+
+  constexpr VTable() noexcept {};
+  template <typename Spec>
+  static constexpr std::ptrdiff_t offset(traits::Id<Spec>) noexcept {
+    constexpr VTable<MethodSpecs...> t;
+    const std::byte *this_ =
+        static_cast<const std::byte *>(static_cast<const void *>(&t));
+    const std::byte *entry_ = static_cast<const std::byte *>(
+        static_cast<const void *>(static_cast<const VTableEntry<Spec> *>(&t)));
+    return entry_ - this_;
+  }
+  template <typename M, typename... A> static constexpr auto signature_for() {
+    using MFP = decltype(VTable::operator()(M{}, std::declval<A>()...));
+    return traits::Id<extract_signature_t<MFP>>{};
+  }
 };
 
 /// vtable for T and a set of @ref MethodSpec "method specs"
@@ -325,11 +378,166 @@ template <typename T, typename... MethodSpecs>
 inline constexpr VTable<MethodSpecs...> vtable_for =
     VTable<MethodSpecs...>(poly::traits::Id<T>{});
 
+template <typename Spec> struct InterfaceVTableEntry;
+
+template <typename Ret, typename Method, typename... Args>
+struct InterfaceVTableEntry<Ret(Method, Args...)> {
+  using signature_type = Ret(Method, Args...);
+  template <typename... M>
+  constexpr InterfaceVTableEntry(const VTable<M...> *)
+      : offset(VTable<M...>::offset(traits::Id<signature_type>{})) {}
+
+  Ret operator()(Method, const void *table, void *obj, Args... args) const {
+    assert(table);
+    assert(obj);
+    const auto *entry = static_cast<const VTableEntry<signature_type> *>(
+        static_cast<const void *>(static_cast<const std::byte *>(table) +
+                                  offset));
+    return (*entry)(Method{}, obj, std::forward<Args>(args)...);
+  }
+
+  std::size_t offset{0};
+};
+template <typename Ret, typename Method, typename... Args>
+struct InterfaceVTableEntry<Ret(Method, Args...) const> {
+  using signature_type = Ret(Method, Args...);
+  template <typename... M>
+  constexpr InterfaceVTableEntry(const VTable<M...> *)
+      : offset(VTable<M...>::offset(traits::Id<signature_type>{})) {}
+
+  Ret operator()(Method, const void *table, const void *obj,
+                 Args... args) const {
+    assert(table);
+    assert(obj);
+    const auto *entry = static_cast<const VTableEntry<signature_type> *>(
+        static_cast<const void *>(static_cast<const std::byte *>(table) +
+                                  offset));
+    return (*entry)(Method{}, obj, std::forward<Args>(args)...);
+  }
+
+  std::size_t offset{0};
+};
+template <typename Ret, typename Method, typename... Args>
+struct InterfaceVTableEntry<Ret(Method, Args...) noexcept> {
+  using signature_type = Ret(Method, Args...);
+  template <typename... M>
+  constexpr InterfaceVTableEntry(const VTable<M...> *)
+      : offset(VTable<M...>::offset(traits::Id<signature_type>{})) {}
+
+  Ret operator()(Method, const void *table, void *obj,
+                 Args... args) const noexcept {
+    assert(table);
+    assert(obj);
+    const auto *entry = static_cast<const VTableEntry<signature_type> *>(
+        static_cast<const void *>(static_cast<const std::byte *>(table) +
+                                  offset));
+    return (*entry)(Method{}, obj, std::forward<Args>(args)...);
+  }
+
+  std::size_t offset{0};
+};
+template <typename Ret, typename Method, typename... Args>
+struct InterfaceVTableEntry<Ret(Method, Args...) const noexcept> {
+  using signature_type = Ret(Method, Args...);
+  template <typename... M>
+  constexpr InterfaceVTableEntry(const VTable<M...> *)
+      : offset(VTable<M...>::offset(traits::Id<signature_type>{})) {}
+
+  Ret operator()(Method, const void *table, const void *obj,
+                 Args... args) const noexcept {
+    assert(table);
+    assert(obj);
+    const auto *entry = static_cast<const VTableEntry<signature_type> *>(
+        static_cast<const void *>(static_cast<const std::byte *>(table) +
+                                  offset));
+    return (*entry)(Method{}, obj, std::forward<Args>(args)...);
+  }
+
+  std::size_t offset{0};
+};
+
+template <typename... MethodSpecs>
+struct InterfaceVTable : InterfaceVTableEntry<MethodSpecs>... {
+  const void *vtable_;
+
+  using InterfaceVTableEntry<MethodSpecs>::operator()...;
+
+  template <typename MethodName, typename... Args>
+  static constexpr bool nothrow_callable = noexcept(
+      (*std::declval<const detail::InterfaceVTable<MethodSpecs...> *>())(
+          MethodName{}, std::declval<const void *>(), std::declval<void *>(),
+          std::declval<Args>()...));
+  template <typename... M>
+  constexpr InterfaceVTable(const VTable<M...> *table)
+      : InterfaceVTableEntry<MethodSpecs>(table)..., vtable_(table) {}
+
+  template <typename Method, typename... Args>
+  constexpr decltype(auto) call(Method, void *t, Args &&...args) const
+      noexcept(nothrow_callable<Method, decltype(args)...>) {
+    assert(vtable_);
+    return (*this)(Method{}, vtable_, t, std::forward<Args>(args)...);
+  }
+  template <typename Method, typename... Args>
+  constexpr decltype(auto) call(Method, const void *t, Args &&...args) const
+      noexcept(nothrow_callable<Method, decltype(args)...>) {
+    assert(vtable_);
+    return (*this)(Method{}, vtable_, t, std::forward<Args>(args)...);
+  }
+};
+template <typename Self, POLY_TYPE_LIST ListOfSpecs, POLY_TYPE_LIST>
+class InterfaceMethodContainerImpl;
+template <typename Self, typename... MethodSpecs,
+          typename... CollapsedOverloads>
+class InterfaceMethodContainerImpl<Self, type_list<MethodSpecs...>,
+                                   type_list<CollapsedOverloads...>>
+    : public MethodInjector<CollapsedOverloads, Self>... {
+public:
+  template <typename MethodName, typename... Args>
+  static constexpr bool nothrow_callable =
+      noexcept((*std::declval<const VTable<MethodSpecs...> *>())(
+          MethodName{}, std::declval<void *>(), std::declval<Args>()...));
+
+  template <typename... M>
+  constexpr InterfaceMethodContainerImpl(const VTable<M...> *vtable) noexcept
+      : vtable_(vtable) {}
+
+  template <typename MethodName, typename... Args>
+  constexpr decltype(auto)
+  call(Args &&...args) noexcept(nothrow_callable<MethodName, Args...>) {
+    return vtable_.call(MethodName{}, self().data(),
+                        std::forward<Args>(args)...);
+  }
+
+  template <typename MethodName, typename... Args>
+  constexpr decltype(auto) call(Args &&...args) const
+      noexcept(nothrow_callable<MethodName, Args...>) {
+    return vtable_.call(MethodName{}, self().data(),
+                        std::forward<Args>(args)...);
+  }
+
+private:
+  constexpr Self &self() noexcept { return *static_cast<Self *>(this); }
+  constexpr const Self &self() const noexcept {
+    return *static_cast<const Self *>(this);
+  }
+  InterfaceVTable<MethodSpecs...> vtable_;
+};
+
+template <typename Self>
+class InterfaceMethodContainerImpl<Self, type_list<>, type_list<>> {
+  template <typename T>
+  constexpr InterfaceMethodContainerImpl(const T *) noexcept {};
+};
+
+template <typename Self, POLY_TYPE_LIST ListOfMethodSpecs>
+using InterfaceMethodContainer = InterfaceMethodContainerImpl<
+    Self, ListOfMethodSpecs,
+    typename collapse_overloads<ListOfMethodSpecs>::type>;
 /// The MethodContainer holds a pointer to the vtable, or is empty if the
 /// provided list of MethodSpecs is empty.
 /// @tparam Self the interface type that inherits from MethodContainer
 /// @tparam ListOfSpecs type_list of MethodSpecs
-template <typename Self, typename ListOfSpecs, typename>
+template <typename Self, POLY_TYPE_LIST ListOfSpecs, POLY_TYPE_LIST>
 class MethodContainerImpl;
 template <typename Self, typename... MethodSpecs,
           typename... CollapsedOverloads>
@@ -337,8 +545,6 @@ class MethodContainerImpl<Self, type_list<MethodSpecs...>,
                           type_list<CollapsedOverloads...>>
     : public MethodInjector<CollapsedOverloads, Self>... {
 public:
-  template <typename P, typename M>
-  friend class sub_interface;
   template <typename MethodName, typename... Args>
   static constexpr bool nothrow_callable =
       noexcept((*std::declval<const VTable<MethodSpecs...> *>())(
@@ -390,8 +596,8 @@ private:
 };
 template <typename Self>
 class MethodContainerImpl<Self, type_list<>, type_list<>> {
-  template <typename P, typename M>
-  friend class sub_interface;
+  template <typename P, typename M> friend class sub_interface;
+
 protected:
   constexpr void set_vtable(const void *) noexcept {}
 
@@ -399,7 +605,7 @@ protected:
 
   constexpr void reset_vtable() noexcept {}
 };
-template <typename Self, typename ListOfMethodSpecs>
+template <typename Self, POLY_TYPE_LIST ListOfMethodSpecs>
 using MethodContainer =
     MethodContainerImpl<Self, ListOfMethodSpecs,
                         typename collapse_overloads<ListOfMethodSpecs>::type>;

@@ -37,12 +37,8 @@ from third parties, a C library, or built in types, can be extended.
       parameters.
 - as constexpr as possible (fully constexpr when compiling with C++20)
 - only standard library as dependency 
-    - <type_traits>
-    - <utility> (std::declvcal)
-    - <new> (placement new, operator new for SBO storage)
-    - <cstddef>
 
 ## How to include
 
-## Tests
+Get the source code and add the include folder to your toolchains include path.
 
