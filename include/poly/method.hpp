@@ -337,6 +337,8 @@ class MethodContainerImpl<Self, type_list<MethodSpecs...>,
                           type_list<CollapsedOverloads...>>
     : public MethodInjector<CollapsedOverloads, Self>... {
 public:
+  template <typename P, typename M>
+  friend class sub_interface;
   template <typename MethodName, typename... Args>
   static constexpr bool nothrow_callable =
       noexcept((*std::declval<const VTable<MethodSpecs...> *>())(
@@ -388,6 +390,8 @@ private:
 };
 template <typename Self>
 class MethodContainerImpl<Self, type_list<>, type_list<>> {
+  template <typename P, typename M>
+  friend class sub_interface;
 protected:
   constexpr void set_vtable(const void *) noexcept {}
 

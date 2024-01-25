@@ -3,9 +3,9 @@
 #include "poly/config.hpp"
 
 #include "poly/method.hpp"
-#include "poly/traits.hpp"
 #include "poly/property.hpp"
 #include "poly/storage.hpp"
+#include "poly/traits.hpp"
 #include <cstddef>
 
 namespace poly {
@@ -13,10 +13,6 @@ namespace detail {} // namespace detail
 template <typename Storage, typename T, typename... Args>
 inline constexpr bool nothrow_emplaceable_v = noexcept(
     std::declval<Storage>().template emplace<T>(std::declval<Args>()...));
-
-template <POLY_STORAGE StorageType, typename PropertySpecs,
-          typename MethodSpecs>
-class basic_interface;
 
 template <typename PropertySpecs, typename MethodSpecs, std::size_t Size,
           std::size_t Alignment = alignof(std::max_align_t)>
@@ -34,8 +30,13 @@ template <typename PropertySpecs, typename MethodSpecs, std::size_t Size,
           std::size_t Alignment = alignof(std::max_align_t)>
 class SboMoveOnlyObject;
 
-template <typename PropertySpecs, typename MethodSpecs> class Interface;
-
+/// This class is the replacement for the pointer to base.
+/// It holds objects in a storage of type StorageType, and provides the
+/// properties and methods given by the list of PropertySpecs and MethodSpecs.
+/// @tparam StorageType storage used for objects emplaced. Must conform to the
+/// poly::Storage concept.
+/// @tparam PropertySpecs a poly::type_list of @ref PropertySpec "PropertySpecs"
+/// @tparam MethodSpecs a poly::type_list of @ref MethodSpec "MethodSpecs"
 template <POLY_STORAGE StorageType, typename PropertySpecs,
           typename MethodSpecs>
 class basic_interface
@@ -53,9 +54,9 @@ public:
   friend class poly::detail::MethodContainerImpl;
   template <typename Self, typename ListOfPropertySpecs>
   friend class poly::detail::PropertyContainer;
-
+  template <typename P, typename M> friend class sub_interface;
   using method_specs = MethodSpecs;
-  using property_specs =PropertySpecs;
+  using property_specs = PropertySpecs;
 
   static_assert(poly::is_type_list_v<PropertySpecs>,
                 "The PropertySpecs must be provided as a poly::type_list of "
@@ -78,6 +79,7 @@ public:
   basic_interface() = delete;
 
   /// copy ctor
+  /// @{
   template <typename OtherStorage,
             typename = std::enable_if_t<
                 std::is_constructible_v<StorageType, const OtherStorage &>>>
@@ -89,6 +91,7 @@ public:
     this->set_vtable(other.vtable());
     this->set_ptable(other.ptable());
   }
+  /// @}
 
   /// ctor for lvalue reference (Storage = ref storage, OtherStorage= any
   /// storage type)
@@ -103,6 +106,7 @@ public:
   }
 
   /// move ctor
+  /// @{
   template <typename OtherStorage,
             typename = std::enable_if_t<
                 std::is_constructible_v<StorageType, OtherStorage &&>>>
@@ -114,32 +118,38 @@ public:
     this->set_vtable(other.vtable());
     this->set_ptable(other.ptable());
   }
+  basic_interface(basic_interface &&other) noexcept(
+      std::is_nothrow_constructible_v<StorageType, StorageType &&>)
+      : P(*this), storage_(std::move(other.storage_)) {
+    this->set_vtable(other.vtable());
+    this->set_ptable(other.ptable());
+  }
+  /// @}
 
   /// construct from a T
+  /// @{
   template <typename T, typename = std::enable_if_t<
                             not traits::is_storage_v<std::decay_t<T>>>>
   basic_interface(T &&t) noexcept(
-      nothrow_emplaceable_v<StorageType, std::decay_t<T>,
-                            decltype(std::forward<T>(std::declval<T &&>()))>)
+      nothrow_emplaceable_v<StorageType, std::decay_t<T>, decltype(t)>)
       : P(*this) {
     storage_.template emplace<std::decay_t<T>>(std::forward<T>(t));
     this->set_vtable(traits::Id<std::decay_t<T>>{});
     this->set_ptable(traits::Id<std::decay_t<T>>{});
   }
 
-  /// construct from T by in place constructing T
+  /// in place constructing a T
   template <typename T, typename... Args,
             typename = std::enable_if_t<
                 not std::is_base_of_v<basic_interface, std::decay_t<T>>>>
   basic_interface(traits::Id<T>, Args &&...args) noexcept(
-      nothrow_emplaceable_v<
-          StorageType, std::decay_t<T>,
-          decltype(std::forward<Args>(std::declval<Args &&>()))...>)
+      nothrow_emplaceable_v<StorageType, T, decltype(args)...>)
       : P(*this) {
     storage_.template emplace<T>(std::forward<Args>(args)...);
     this->set_vtable(traits::Id<T>{});
     this->set_ptable(traits::Id<T>{});
   }
+  /// @}
 
   template <typename OtherStorage,
             typename = std::enable_if_t<
@@ -262,6 +272,7 @@ public:
   SboMoveOnlyObject &operator=(SboMoveOnlyObject &&) = default;
 };
 
+///
 template <typename PropertySpecs, typename MethodSpecs>
 class Interface
     : public basic_interface<ref_storage, PropertySpecs, MethodSpecs> {
@@ -280,5 +291,29 @@ public:
   Interface &operator=(Interface &&) = default;
 };
 
+template <typename PropertySpecs, typename MethodSpecs> class sub_interface {
+  static constexpr size_t num_properties =
+      detail::list_size<PropertySpecs>::value;
+  static constexpr size_t num_methods = detail::list_size<MethodSpecs>::value;
+
+public:
+  template <typename S, typename P, typename M>
+  sub_interface(basic_interface<S, P, M> &intf)
+      : storage_(intf.data()), vtable_(intf.get_vtable()),
+        ptable_(intf.get_ptable()) {}
+
+private:
+  template <typename S, typename P, typename M, size_t... Ps, size_t... Ms>
+  sub_interface(basic_interface<S, P, M> &intf, std::index_sequence<Ps...>,
+                std::index_sequence<Ms...>)
+      : storage_(intf.data()), vtable_(intf.get_vtable()),
+        ptable_(intf.get_ptable()),
+        vindex_{index_of_v<M, at_t<MethodSpecs, Ms>>...} {}
+  void *storage_;
+  const void *vtable_;
+  const void *ptable_;
+  uint8_t vindex_[num_methods];
+  uint8_t pindex_[num_methods];
+};
 } // namespace poly
 #endif
