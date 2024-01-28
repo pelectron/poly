@@ -2,8 +2,8 @@
 #define POLY_STRORAGE_HPP
 #include "poly/traits.hpp"
 
+#include <cassert>
 #include <memory>
-#include <new>
 
 namespace poly {
 
@@ -24,6 +24,7 @@ template <std::size_t Size, std::size_t Alignment = alignof(std::max_align_t)>
 class move_only_sbo_storage;
 
 namespace detail {
+
 template <typename T> inline constexpr bool is_local_storage = false;
 template <std::size_t Size, std::size_t Alignment>
 inline constexpr bool is_local_storage<local_storage<Size, Alignment>> = true;
@@ -78,8 +79,8 @@ template <bool Copyable> struct sbo_resource_table {
       void *src); ///< allocates new heap copy move constructed from src
   void (*destroy)(void *dest);      ///< destroy object in local buffer
   void (*heap_destroy)(void *dest); ///< destroy object on heap
-  size_t size;
-  size_t align;
+  std::size_t size;
+  std::size_t align;
 };
 
 /// table of function pointers for resource managment used by
@@ -91,8 +92,8 @@ template <> struct sbo_resource_table<false> {
       void *src); ///< allocates new heap copy move constructed from src
   void (*destroy)(void *dest);      ///< destroy object in local buffer
   void (*heap_destroy)(void *dest); ///< destroy object on heap
-  size_t size;
-  size_t align;
+  std::size_t size;
+  std::size_t align;
 };
 
 /// returns a fully populated resource_table
@@ -178,6 +179,225 @@ inline constexpr resource_table<Copyable> resource_table_for =
 template <bool Copyable, typename T>
 inline constexpr sbo_resource_table<Copyable> sbo_table_for =
     get_sbo_resource_table<Copyable, T>();
+
+#if __cplusplus > 201703L
+template <class T, class... Args>
+constexpr T *construct_at(T *p, Args &&...args) {
+  return std::construct_at(p, std::forward<Args>(args)...);
+}
+#else
+template <class T, class... Args> T *construct_at(T *p, Args &&...args) {
+  return ::new (static_cast<void *>(p)) T(std::forward<Args>(args)...);
+}
+#endif
+struct NoValue {};
+
+template <std::size_t I, typename... Ts> union variant_impl {
+  using value_type = at_t<type_list<Ts...>, I>;
+  using types = type_list<Ts...>;
+  template <typename T>
+  static constexpr bool contains = contains_v<types, std::decay_t<T>>;
+
+  template <typename T>
+  static constexpr bool copy_constructible =
+      std::is_copy_constructible_v<T> and
+      std::is_copy_constructible_v<variant_impl<I + 1, Ts...>>;
+  static constexpr bool move_constructible =
+      std::is_move_constructible_v<value_type> and
+      std::is_move_constructible_v<variant_impl<I + 1, Ts...>>;
+
+  variant_impl<I + 1, Ts...> rest_;
+  value_type value_;
+
+  // ctor for empty variant
+  constexpr variant_impl() noexcept : rest_() {}
+
+  template <typename T, typename... Args>
+  constexpr auto &create(Args &&...args) {
+    if constexpr (std::is_same_v<T, value_type>) {
+      return *construct_at(std::addressof(value_), std::forward<Args>(args)...);
+    } else {
+      return rest_.template create<T>(std::forward<Args>(args)...);
+    }
+  }
+
+  void copy(const variant_impl &other, std::size_t idx) {
+    if (I == idx) {
+      construct_at(std::addressof(value_), other.value_);
+    } else {
+      rest_.copy(other.rest_, idx);
+    }
+  }
+
+  void move(variant_impl &&other, std::size_t idx) {
+    if (I == idx) {
+      construct_at(std::addressof(value_), std::move(other.value_));
+    } else {
+      rest_.move(std::move(other.rest_), idx);
+    }
+  }
+
+  constexpr void destroy(std::size_t idx) {
+    if (I == idx) {
+      std::destroy_at(std::addressof(value_));
+    } else {
+      rest_.destroy(idx);
+    }
+  }
+  constexpr ~variant_impl() noexcept {}
+};
+template <typename... Ts> union variant_impl<sizeof...(Ts) - 1, Ts...> {
+  using value_type = at_t<type_list<Ts...>, sizeof...(Ts) - 1>;
+  static constexpr inline std::size_t I = sizeof...(Ts) - 1;
+
+  NoValue empty_;
+  value_type value_;
+
+  // ctor for empty variant
+  constexpr variant_impl() noexcept : empty_() {}
+  constexpr ~variant_impl() noexcept {}
+  template <typename T, typename... Args>
+  constexpr value_type &create(Args &&...args) {
+    static_assert(std::is_same_v<T, value_type>);
+    return *construct_at(std::addressof(value_), std::forward<Args>(args)...);
+  }
+  void copy(const variant_impl &other, std::size_t idx) {
+    assert(idx <= (I + 1));
+    if (I == idx) {
+      construct_at(std::addressof(value_), other.value_);
+    } else {
+      empty_ = other.empty_;
+    }
+  }
+
+  void move(variant_impl &&other, std::size_t idx) {
+    assert(idx <= (I + 1));
+    if (I == idx) {
+      construct_at(std::addressof(value_), std::move(other.value_));
+    } else {
+      empty_ = other.empty_;
+    }
+  }
+
+  constexpr void destroy(std::size_t idx) {
+    assert(idx <= (I + 1));
+    if (I == idx) {
+      std::destroy_at(std::addressof(value_));
+    }
+  }
+};
+
+template <bool Copyable, typename... Ts> class variant_storage_impl {
+  using index_type = traits::smallest_uint_to_contain<sizeof...(Ts)>;
+  variant_impl<0, Ts...> impl_;
+  index_type idx;
+
+  using types = type_list<Ts...>;
+  template <typename T> static constexpr bool contains = contains_v<types, T>;
+
+  template <typename T> struct construct_candidates {
+    template <typename T_> using convertible = std::is_convertible<T, T_>;
+    using type = filter_t<types, convertible>;
+  };
+
+public:
+  static constexpr bool copyable =
+      conjunction_v<transform_t<types, std::is_copy_constructible>>;
+  static constexpr bool nothrow_copyable =
+      conjunction_v<transform_t<types, std::is_nothrow_copy_constructible>>;
+  static constexpr bool nothrow_movable =
+      conjunction_v<transform_t<types, std::is_nothrow_move_constructible>>;
+  static constexpr bool nothrow_destructible =
+      conjunction_v<transform_t<types, std::is_nothrow_destructible>>;
+
+  constexpr variant_storage_impl() noexcept : impl_(), idx(sizeof...(Ts)) {}
+
+  constexpr variant_storage_impl(const variant_storage_impl &other) noexcept(
+      nothrow_copyable)
+      : variant_storage_impl() {
+    impl_.copy(other.impl_, other.idx);
+    idx = other.idx;
+  }
+
+  constexpr variant_storage_impl(variant_storage_impl &&other) noexcept(
+      nothrow_movable)
+      : variant_storage_impl() {
+    impl_.move(std::move(other.impl_), other.idx);
+    other.impl_.destroy(idx);
+    idx = std::exchange(other.idx, sizeof...(Ts));
+  }
+
+  constexpr ~variant_storage_impl() {
+    if (idx != sizeof...(Ts))
+      impl_.destroy(idx);
+  }
+
+  constexpr variant_storage_impl &
+  operator=(variant_storage_impl &&other) noexcept(nothrow_movable and
+                                                   nothrow_destructible) {
+    impl_.destroy(idx);
+    impl_.move(std::move(other.impl_), other.idx);
+    other.impl_.destroy(idx);
+    idx = std::exchange(other.idx, sizeof...(Ts));
+    return *this;
+  }
+
+  constexpr variant_storage_impl &
+  operator=(const variant_storage_impl &other) noexcept(nothrow_copyable and
+                                                        nothrow_destructible) {
+    impl_.destroy(idx);
+    impl_.copy(other.impl_, other.idx);
+    idx = other.idx;
+    return *this;
+  }
+
+  template <typename T, typename... Args>
+  T &emplace(Args &&...args) noexcept(std::is_constructible_v<T, Args &&...>) {
+    static_assert(poly::contains_v<types, T>,
+                  "T ist not a valid variant option");
+    impl_.destroy(idx);
+    idx = 0;
+    T &t = impl_.template create<T>(std::forward<Args>(args)...);
+    idx = index_of_v<types, T>;
+    return t;
+  }
+
+  void *data() noexcept {
+    return idx != sizeof...(Ts) ? static_cast<void *>(&impl_) : nullptr;
+  }
+
+  const void *data() const noexcept {
+    return idx != sizeof...(Ts) ? static_cast<const void *>(&impl_) : nullptr;
+  }
+};
+template <typename... Ts>
+class variant_storage_impl<false, Ts...>
+    : public variant_storage_impl<true, Ts...> {
+  using Base = variant_storage_impl<true, Ts...>;
+
+public:
+  using types = poly::type_list<Ts...>;
+  static constexpr bool copyable = false;
+  static constexpr bool nothrow_copyable =
+      conjunction_v<transform_t<types, std::is_nothrow_copy_constructible>>;
+  static constexpr bool nothrow_movable =
+      conjunction_v<transform_t<types, std::is_nothrow_move_constructible>>;
+  static constexpr bool nothrow_destructible =
+      conjunction_v<transform_t<types, std::is_nothrow_destructible>>;
+
+  constexpr variant_storage_impl() noexcept = default;
+  constexpr variant_storage_impl(variant_storage_impl &&other) noexcept(
+      nothrow_copyable and nothrow_destructible)
+      : Base(std::move(other)) {}
+  constexpr variant_storage_impl &
+  operator=(variant_storage_impl &&other) noexcept(nothrow_copyable and
+                                                   nothrow_destructible) {
+    Base::operator=(std::move(other));
+    return *this;
+  }
+  variant_storage_impl(const variant_storage_impl &) = delete;
+  variant_storage_impl &operator=(const variant_storage_impl &) = delete;
+};
 } // namespace detail
 
 /// non owing storage. Only contains pointer to object emplaced.
@@ -411,6 +631,8 @@ public:
 
   /// move ctor
   constexpr local_storage(local_storage &&s) : Base(std::move(s)) {}
+  template <std::size_t S, std::size_t A>
+  constexpr local_storage(local_storage<S, A> &&s) : Base(std::move(s)) {}
 
   /// copy ctor
   template <std::size_t S, std::size_t A>
@@ -463,7 +685,7 @@ public:
   //     : Base(std::move(t)) {}
 
   /// move ctor
-  template <size_t S, size_t A>
+  template <std::size_t S, std::size_t A>
   constexpr move_only_local_storage(move_only_local_storage<S, A> &&s)
       : Base(std::move(s)) {}
 
@@ -471,7 +693,7 @@ public:
   move_only_local_storage(const move_only_local_storage &s) = delete;
 
   /// move assignment
-  template <size_t S, size_t A>
+  template <std::size_t S, std::size_t A>
   constexpr move_only_local_storage &
   operator=(move_only_local_storage<S, A> &&s) {
     Base::operator=(std::move(s));
@@ -500,7 +722,7 @@ public:
   constexpr basic_sbo_storage() noexcept {}
 
   /// copy ctor for copyable sbo storage
-  template <size_t S, size_t A>
+  template <std::size_t S, std::size_t A>
   constexpr basic_sbo_storage(const basic_sbo_storage<Copyable, S, A> &other) {
     static_assert(Copyable);
     this->copy(other);
@@ -515,7 +737,7 @@ public:
   }
 
   /// move ctor
-  template <size_t S, size_t A>
+  template <std::size_t S, std::size_t A>
   constexpr basic_sbo_storage(basic_sbo_storage<Copyable, S, A> &&other) {
     this->move(std::move(other));
   }
@@ -526,7 +748,7 @@ public:
   }
 
   /// move assignment
-  template <size_t S, size_t A>
+  template <std::size_t S, std::size_t A>
   constexpr basic_sbo_storage &
   operator=(basic_sbo_storage<Copyable, S, A> &&other) {
     return this->move(std::move(other));
@@ -538,7 +760,7 @@ public:
   }
 
   /// copy assignment
-  template <size_t S, size_t A>
+  template <std::size_t S, std::size_t A>
   constexpr basic_sbo_storage &
   operator=(const basic_sbo_storage<Copyable, S, A> &other) {
     static_assert(Copyable);
@@ -604,7 +826,7 @@ private:
     vtbl_ = nullptr;
   }
 
-  template <size_t S, size_t A>
+  template <std::size_t S, std::size_t A>
   constexpr basic_sbo_storage &move(basic_sbo_storage<Copyable, S, A> &&other) {
     if constexpr (S == Size and A == Alignment) {
       if (&other == this)
@@ -650,7 +872,7 @@ private:
     return *this;
   }
 
-  template <size_t S, size_t A>
+  template <std::size_t S, std::size_t A>
   constexpr basic_sbo_storage &
   copy(const basic_sbo_storage<Copyable, S, A> &other) {
     static_assert(Copyable);
@@ -743,17 +965,17 @@ public:
   //     : Base(std::forward<T>(t)) {}
 
   /// move ctor
-  template <size_t S, size_t A>
+  template <std::size_t S, std::size_t A>
   constexpr sbo_storage(sbo_storage<S, A> &&s) : Base(std::move(s)) {}
   constexpr sbo_storage(sbo_storage &&s) : Base(std::move(s)) {}
 
   /// copy ctor
   constexpr sbo_storage(const sbo_storage &s) : Base(s) {}
-  template <size_t S, size_t A>
+  template <std::size_t S, std::size_t A>
   constexpr sbo_storage(const sbo_storage<S, A> &s) : Base(s) {}
 
   /// move assignemnt
-  template <size_t S, size_t A>
+  template <std::size_t S, std::size_t A>
   constexpr sbo_storage &operator=(sbo_storage<S, A> &&s) {
     Base::operator=(std::move(s));
     return *this;
@@ -764,7 +986,7 @@ public:
     Base::operator=(s);
     return *this;
   }
-  template <size_t S, size_t A>
+  template <std::size_t S, std::size_t A>
   constexpr sbo_storage &operator=(const sbo_storage<S, A> &s) {
     Base::operator=(s);
     return *this;
@@ -796,7 +1018,7 @@ public:
   //     : Base(std::forward<T>(t)) {}
 
   /// move ctor
-  template <size_t S, size_t A>
+  template <std::size_t S, std::size_t A>
   constexpr move_only_sbo_storage(move_only_sbo_storage<S, A> &&s)
       : Base(std::move(s)) {}
 
@@ -808,7 +1030,7 @@ public:
   //   Base::operator=(std::move(s));
   //   return *this;
   // }
-  template <size_t S, size_t A>
+  template <std::size_t S, std::size_t A>
   constexpr move_only_sbo_storage &operator=(move_only_sbo_storage<S, A> &&s) {
     Base::operator=(std::move(s));
     return *this;
@@ -822,5 +1044,15 @@ public:
   move_only_sbo_storage &operator=(const move_only_sbo_storage &s) = delete;
 };
 
+/// The variant storage can store an object of type T, if T is in the pack Ts.
+/// Does not depend on std::variant.
+///
+/// Like std::variant, it essentially is a tagged union. The key difference to
+/// std::variant is that the data() method is constant time without having to
+/// rely on std::visit.
+template <typename... Ts>
+using variant_storage =
+    detail::variant_storage_impl<(std::is_copy_constructible_v<Ts> && ...),
+                                 Ts...>;
 } // namespace poly
 #endif

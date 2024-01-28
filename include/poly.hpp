@@ -9,8 +9,7 @@
 #define INC_PROPERTIES_HPP_
 
 #include "poly/interface.hpp"
-#include "poly/method.hpp"
-#include "poly/property.hpp"
+#include "poly/object.hpp"
 #include "poly/storage.hpp"
 
 #define METHODS(...) poly::type_list<__VA_ARGS__>

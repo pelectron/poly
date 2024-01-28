@@ -2,15 +2,15 @@ option( 'macros',
         type : 'boolean', 
         value : true, 
         description : 'Enable the usage of macros provided by poly')
-option( 'inject', 
+option( 'injection', 
         type : 'boolean', 
         value : true, 
         description : 'Enable method and property injection')
-option( 'inject_methods', 
+option( 'method_injection', 
         type : 'boolean', 
         value : true, 
         description : 'Enable method injection')
-option( 'inject_properties', 
+option( 'property_injection', 
         type : 'boolean', 
         value : true, 
         description : 'Enable property injection')

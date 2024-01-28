@@ -9,16 +9,6 @@
 #include <type_traits>
 #include <utility>
 
-#if __cplusplus > 201703L
-// include if c++ std > c++17
-#include <concepts>
-#define POLY_STORAGE poly::traits::Storage
-#define POLY_TYPE_LIST poly::traits::TypeList
-#else
-#define POLY_STORAGE typename
-#define POLY_TYPE_LIST typename
-#endif
-
 namespace poly {
 
 namespace traits {
@@ -88,25 +78,7 @@ template <typename T> struct is_type_list : std::false_type {};
 template <template <typename...> typename L, typename... Ts>
 struct is_type_list<L<Ts...>> : std::true_type {};
 
-#if __cplusplus > 201703L
-// include if c++ std > c++17
-
-/** @concept Storage
- * @see @ref Storage
- */
-template <typename T>
-concept Storage = is_storage<T>::value;
-
-template <typename T> inline constexpr bool is_storage_v = Storage<T>;
-
-template <typename T>
-concept TypeList = is_type_list<T>::value;
-
-template <typename T> inline constexpr bool is_type_list_v = TypeList<T>;
-
-#else
 template <typename T> inline constexpr bool is_storage_v = is_storage<T>::value;
-#endif
 
 /// simply utility "identity" type
 template <typename T> struct Id {
@@ -283,6 +255,14 @@ struct is_property_spec<const Name(Type) noexcept> : std::true_type {};
 template <typename T>
 inline constexpr bool is_property_spec_v = is_property_spec<T>::value;
 
+template <auto value>
+using smallest_uint_to_contain =
+    std::conditional_t <
+    std::size_t(value)<
+        std::size_t(256), std::uint8_t,
+        std::conditional_t<std::size_t(value) < (std::size_t(1) << 16), std::uint16_t,
+                           std::conditional_t<std::size_t(value) < (std::size_t(1) << 32),
+                                              std::uint32_t, std::uint64_t>>>;
 } // namespace traits
 
 /// @addtogroup traits type traits
@@ -341,8 +321,11 @@ inline constexpr bool is_const_property_v = traits::is_const_v<PropertySpec>;
 /// @}
 
 /// @addtogroup MethodSpec MethodSpec Concept
-/// A MethodSpec defines the return type, name, and arguments of a method. It is
-/// a function type with the allowd patterns:
+///
+/// A @ref MethodSpec defines the return type, name, and arguments of a method.
+///
+/// A method, in the context of poly, is a member function to be called on an
+/// interface. It is a function signature type with the allowed patterns:
 /// - ReturnType(MethodName, ArgumentTypes...): specifies a method with return
 /// type ReturnType, name MethodName, and arguments of type ArgumentTypes.
 /// - ReturnType(MethodName, ArgumentTypes...) const: specifies a const method,
@@ -351,10 +334,13 @@ inline constexpr bool is_const_property_v = traits::is_const_v<PropertySpec>;
 /// throwing method.
 /// - ReturnType(MethodName, ArgumentTypes...) const noexcept: specifies a const
 /// non throwing method.
+///
+/// The MethodName is a tag type and does not contain any data. It is simply
+/// used to tag @ref method_extension "extend" to enable methods with identical
+/// arguments and overloaded methods.
 /// @{
 
 /// evaluates to true if T is a valid MethodSpec.
-///
 template <typename T>
 inline constexpr bool is_method_spec_v = traits::is_method_spec_v<T>;
 
@@ -439,5 +425,36 @@ inline constexpr bool is_storage_v = traits::is_storage_v<T>;
 template <typename Sig, typename F>
 inline constexpr bool is_invocable_v = traits::invocable_r<Sig, F>::value;
 /// @}
+
+#if __cplusplus > 201703L
+// enabled if c++ std > c++17
+/** @concept Storage
+ * @see poly::is_storage_v
+ */
+template <typename T>
+concept Storage = ::poly::is_storage_v<T>;
+
+/** @concept MethodSpecification
+ * @see poly::is_method_spec_v
+ */
+template <typename T>
+concept MethodSpecification = ::poly::is_method_spec_v<T>;
+
+template <typename T>
+concept PropertySpecification = ::poly::is_property_spec_v<T>;
+
+#endif
 } // namespace poly
+
+#if __cplusplus > 201703L
+// enabled if c++ std > c++17
+#define POLY_STORAGE ::poly::Storage
+#define POLY_METHOD_SPEC ::poly::MethodSpecification
+#define POLY_PROP_SPEC ::poly::PropertySpecification
+#else
+#define POLY_STORAGE typename
+#define POLY_METHOD_SPEC typename
+#define POLY_PROP_SPEC typename
+#endif
+
 #endif

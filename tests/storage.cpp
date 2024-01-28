@@ -116,7 +116,16 @@ TEMPLATE_TEST_CASE(
     (poly::type_list<poly::sbo_storage<32, 8>, Tracker<8, 8>>),
     (poly::type_list<poly::sbo_storage<32, 8>, Tracker<8, 16>>),
     (poly::type_list<poly::sbo_storage<32, 8>, Tracker<64, 8>>),
-    (poly::type_list<poly::sbo_storage<32, 8>, Tracker<64, 16>>)) {
+    (poly::type_list<poly::sbo_storage<32, 8>, Tracker<64, 16>>),
+    (poly::type_list<
+        poly::variant_storage<Tracker<64, 16>, Tracker<64, 8>, Tracker<8, 16>>,
+        Tracker<64, 16>>),
+    (poly::type_list<
+        poly::variant_storage<Tracker<64, 16>, Tracker<64, 8>, Tracker<8, 16>>,
+        Tracker<64, 8>>),
+    (poly::type_list<
+        poly::variant_storage<Tracker<64, 16>, Tracker<64, 8>, Tracker<8, 16>>,
+        Tracker<8, 16>>)) {
 
   using Storage = poly::at_t<TestType, 0>;
   using Object = poly::at_t<TestType, 1>;
