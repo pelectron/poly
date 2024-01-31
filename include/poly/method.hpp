@@ -7,14 +7,15 @@
 namespace poly {
 
 /// @addtogroup method_extension Method Extension
-/// @ref MethodSpec "MethodSpecs" are implemented for an arbitrary type T by
-/// defining and implementing a function called extend. extend must be
-/// locatable through "argument dependent lookup" (ADL), that is, extend should
-/// be defined in the same namespace as the method name, or the same namespace
-/// as the T to be extended. In general, if the T is a type owned by the user,
-/// extend should be in the same namespace as T. For third party types, such as
-/// standard library containers, extend should be defined in the same namespace
-/// as the methods name.
+/// @ref MethodSpec "MethodSpecs" for an arbitrary type T are implemented by
+/// defining a function called extend.
+///
+/// extend must be locatable through "argument dependent lookup" (ADL), that is,
+/// extend should be defined in the same namespace as the method name, or the
+/// same namespace as the T to be extended. In general, if the T is a type owned
+/// by the user, extend should be in the same namespace as T. For third party
+/// types, such as standard library containers, extend should be defined in the
+/// same namespace as the methods name.
 ///
 /// The signature of extend must match the @ref MethodSpec. For a @ref
 /// MethodSpec with return type Ret, name Name, and arguments Args..., extend
@@ -29,6 +30,9 @@ namespace poly {
 /// Ret extend(Name, const T& obj, Args...args);
 ///
 /// If the @ref MethodSpec is specified noexcept, extend must be noexcept also.
+///
+/// To enable name injection, the @ref POLY_METHOD macro has to be used to
+/// define the method name.
 /// @{
 
 /// extension point for the @ref MethodSpec 'Ret(MethodName,Args...)[noexcept]'.
@@ -50,14 +54,14 @@ Ret extend(MethodName, const T &t, Args... args);
 /// If method injection is disabled, this macro will simply expand to
 ///
 /// ```
-/// struct MethodName{};
+/// _this_type{};
 /// ```
 ///
 /// If injection is enabled, the struct defined will also contain an inner class
 /// template called injector, i.e. the macro wil expand to:
 ///
 /// ```
-/// struct MethodName{
+/// _this_type{
 /// template<typenameSelf,typename Spec>
 /// struct injector{};
 /// };
@@ -75,6 +79,9 @@ Ret extend(MethodName, const T &t, Args... args);
 } // namespace poly
 
 #if POLY_USE_MACROS
+
+#define POLY_METHODS(...) poly::type_list<__VA_ARGS__>
+
 #define POLY_METHOD(MethodName)                                                \
   POLY_METHOD_IMPL(MethodName)                                                 \
   POLY_DEFAULT_EXTEND_IMPL(MethodName)
@@ -82,45 +89,130 @@ Ret extend(MethodName, const T &t, Args... args);
 
 #define POLY_METHOD_IMPL(MethodName)                                           \
   struct MethodName {                                                          \
+    using _this_type = MethodName;                                             \
     template <typename Self, typename MethodSpecOrListOfSpecs>                 \
     struct injector;                                                           \
+                                                                               \
+    /** specialization for non overloaded method*/                             \
     template <typename Self, typename Ret, typename... Args>                   \
     struct injector<Self, Ret(MethodName, Args...)> {                          \
-      Ret MethodName(Args... args) {                                           \
+      constexpr Ret MethodName(Args... args) {                                 \
         Self *self = static_cast<Self *>(this);                                \
-        return self->template call<struct MethodName>(                         \
-            std::forward<Args>(args)...);                                      \
+        return self->template call<_this_type>(std::forward<Args>(args)...);   \
       }                                                                        \
     };                                                                         \
+                                                                               \
     template <typename Self, typename Ret, typename... Args>                   \
     struct injector<Self, Ret(MethodName, Args...) const> {                    \
-      Ret MethodName(Args... args) const {                                     \
+      constexpr Ret MethodName(Args... args) const {                           \
         const Self *self = static_cast<const Self *>(this);                    \
-        return self->template call<struct MethodName>(                         \
-            std::forward<Args>(args)...);                                      \
+        return self->template call<_this_type>(std::forward<Args>(args)...);   \
       }                                                                        \
     };                                                                         \
+                                                                               \
     template <typename Self, typename Ret, typename... Args>                   \
     struct injector<Self, Ret(MethodName, Args...) noexcept> {                 \
-      Ret MethodName(Args... args) noexcept {                                  \
+      constexpr Ret MethodName(Args... args) noexcept {                        \
         Self *self = static_cast<Self *>(this);                                \
-        return self->template call<struct MethodName>(                         \
-            std::forward<Args>(args)...);                                      \
+        return self->template call<_this_type>(std::forward<Args>(args)...);   \
       }                                                                        \
     };                                                                         \
+                                                                               \
     template <typename Self, typename Ret, typename... Args>                   \
     struct injector<Self, Ret(MethodName, Args...) const noexcept> {           \
-      Ret MethodName(Args... args) const noexcept {                            \
+      constexpr Ret MethodName(Args... args) const noexcept {                  \
         const Self *self = static_cast<const Self *>(this);                    \
-        return self->template call<struct MethodName>(                         \
-            std::forward<Args>(args)...);                                      \
+        return self->template call<_this_type>(std::forward<Args>(args)...);   \
       }                                                                        \
     };                                                                         \
+                                                                               \
+    /** specialization for overloaded methods */                               \
+    /** cannot use variadic inheritance because of empty base optimization */  \
+    /** issues -> linear single inheritance */                                 \
     template <typename Self, template <typename...> typename List,             \
-              typename... MethodSpecs>                                         \
-    struct injector<Self, List<MethodSpecs...>>                                \
-        : public injector<Self, MethodSpecs>... {                              \
-      using injector<Self, MethodSpecs>::MethodName...;                        \
+              typename Ret, typename... Args, typename... Specs>               \
+    struct injector<Self, List<Ret(MethodName, Args...), Specs...>>            \
+        : public injector<Self, List<Specs...>> {                              \
+      using injector<Self, List<Specs...>>::MethodName;                        \
+                                                                               \
+      Ret MethodName(Args... args) {                                           \
+        Self *self = static_cast<Self *>(this);                                \
+        return self->template call<_this_type>(std::forward<Args>(args)...);   \
+      }                                                                        \
+    };                                                                         \
+                                                                               \
+    template <typename Self, template <typename...> typename List,             \
+              typename Ret, typename... Args, typename... Specs>               \
+    struct injector<Self, List<Ret(MethodName, Args...) noexcept, Specs...>>   \
+        : public injector<Self, List<Specs...>> {                              \
+      using injector<Self, List<Specs...>>::MethodName;                        \
+                                                                               \
+      Ret MethodName(Args... args) noexcept {                                  \
+        Self *self = static_cast<Self *>(this);                                \
+        return self->template call<_this_type>(std::forward<Args>(args)...);   \
+      }                                                                        \
+    };                                                                         \
+                                                                               \
+    template <typename Self, template <typename...> typename List,             \
+              typename Ret, typename... Args, typename... Specs>               \
+    struct injector<Self, List<Ret(MethodName, Args...) const, Specs...>>      \
+        : public injector<Self, List<Specs...>> {                              \
+      using injector<Self, List<Specs...>>::MethodName;                        \
+                                                                               \
+      Ret MethodName(Args... args) const {                                     \
+        Self *self = static_cast<Self *>(this);                                \
+        return self->template call<_this_type>(std::forward<Args>(args)...);   \
+      }                                                                        \
+    };                                                                         \
+                                                                               \
+    template <typename Self, template <typename...> typename List,             \
+              typename Ret, typename... Args, typename... Specs>               \
+    struct injector<Self,                                                      \
+                    List<Ret(MethodName, Args...) const noexcept, Specs...>>   \
+        : public injector<Self, List<Specs...>> {                              \
+      using injector<Self, List<Specs...>>::MethodName;                        \
+                                                                               \
+      Ret MethodName(Args... args) const noexcept {                            \
+        Self *self = static_cast<Self *>(this);                                \
+        return self->template call<_this_type>(std::forward<Args>(args)...);   \
+      }                                                                        \
+    };                                                                         \
+                                                                               \
+    template <typename Self, template <typename...> typename List,             \
+              typename Ret, typename... Args>                                  \
+    struct injector<Self, List<Ret(MethodName, Args...)>> {                    \
+      Ret MethodName(Args... args) {                                           \
+        Self *self = static_cast<Self *>(this);                                \
+        return self->template call<_this_type>(std::forward<Args>(args)...);   \
+      }                                                                        \
+    };                                                                         \
+                                                                               \
+    template <typename Self, template <typename...> typename List,             \
+              typename Ret, typename... Args>                                  \
+    struct injector<Self, List<Ret(MethodName, Args...) noexcept>> {           \
+                                                                               \
+      Ret MethodName(Args... args) noexcept {                                  \
+        Self *self = static_cast<Self *>(this);                                \
+        return self->template call<_this_type>(std::forward<Args>(args)...);   \
+      }                                                                        \
+    };                                                                         \
+                                                                               \
+    template <typename Self, template <typename...> typename List,             \
+              typename Ret, typename... Args>                                  \
+    struct injector<Self, List<Ret(MethodName, Args...) const>> {              \
+      Ret MethodName(Args... args) const {                                     \
+        Self *self = static_cast<Self *>(this);                                \
+        return self->template call<_this_type>(std::forward<Args>(args)...);   \
+      }                                                                        \
+    };                                                                         \
+                                                                               \
+    template <typename Self, template <typename...> typename List,             \
+              typename Ret, typename... Args>                                  \
+    struct injector<Self, List<Ret(MethodName, Args...) const noexcept>> {     \
+      Ret MethodName(Args... args) const noexcept {                            \
+        Self *self = static_cast<Self *>(this);                                \
+        return self->template call<_this_type>(std::forward<Args>(args)...);   \
+      }                                                                        \
     };                                                                         \
   };
 

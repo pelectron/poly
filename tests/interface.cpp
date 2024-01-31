@@ -13,7 +13,7 @@ using OBJ =
                                void(method2, float))>;
 
 using SubIf =
-    poly::Interface<poly::type_list<>,
+    poly::Interface<PROPERTIES(property(int)),
                     METHODS(int(method), int(method2, int),int(method2))>;
 
 using REF = poly::Interface<PROPERTIES(property(int)),

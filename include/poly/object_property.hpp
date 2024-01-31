@@ -9,7 +9,7 @@
 namespace poly {
 namespace detail {
 using property_offset_type =
-    traits::smallest_uint_to_contain<POLY_MAX_PROPERTY_COUNT>;
+    traits::smallest_uint_to_contain<POLY_MAX_PROPERTY_COUNT - 1>;
 
 /// type trait to detect inner template "injector" in the name of the
 /// PropertySpec
@@ -37,9 +37,6 @@ template <POLY_PROP_SPEC PropertySpec, typename Self>
 struct PropertyInjector<PropertySpec, Self, true>
     : public property_name_t<PropertySpec>::template injector<Self,
                                                               PropertySpec> {
-  using Base =
-      typename property_name_t<PropertySpec>::template injector<Self,
-                                                                PropertySpec>;
 };
 
 template <POLY_PROP_SPEC PropertySpec, typename Self>
@@ -49,7 +46,7 @@ using property_injector_for_t =
 /// @}
 
 /// The type of the injected member. It provides a conversion operator to Type
-/// (i.e. get()), and an assignemnt operator for a T convertible to Type if the
+/// (i.e. get()), and an assignment operator for a T convertible to Type if the
 /// property is not const (i.e. set()).
 ///
 /// @tparam Self the type of the Object,
@@ -115,16 +112,17 @@ private:
     // (Injector*) is interconvertible with the pointer to the first member
     // (this). That the PropertyInjector is standard_layout, and as such all
     // members of it, is statically asserted in the PropertyContainer.
-    return *static_cast<const Self *>(reinterpet_cast<const Injector *>(this));
+    return *static_cast<const Self *>(reinterpret_cast<const Injector *>(this));
   }
 };
 /// @}
+
 /// @addtogroup ptable Property Table
+/// @{
 /// Properties are accessed through a property table. It is a table of
 /// individual ptable entries. The entries hold the type erased getter, and
 /// optional setter, for a property. A pointer to the property table is held by
 /// the PropertyContainer.
-/// @{
 
 /// Individual entry in the property table. Contains getter and optional
 /// setter.
@@ -137,7 +135,7 @@ template <typename Name, typename Type> struct PTableEntry<const Name(Type)> {
           using poly::get;
           return get(Name{}, *static_cast<const T *>(t));
         }) {}
-
+  constexpr PTableEntry() noexcept = default;
   template <typename T> constexpr void set(Name, void *, const T &) const {
     static_assert(detail::always_false<T>,
                   "This property is not settable, i.e. defined as const.");
@@ -149,11 +147,12 @@ template <typename Name, typename Type> struct PTableEntry<const Name(Type)> {
     return (*get_)(Name{}, t);
   }
 
-  Type (*get_)(Name, const void *);
+  Type (*get_)(Name, const void *) = nullptr;
 };
 
 template <typename Name, typename Type>
 struct PTableEntry<const Name(Type) noexcept> {
+  constexpr PTableEntry() noexcept = default;
   template <typename T>
   constexpr PTableEntry(poly::traits::Id<T>) noexcept
       : get_(+[](Name, const void *t) noexcept -> Type {
@@ -178,14 +177,12 @@ struct PTableEntry<const Name(Type) noexcept> {
     return (*get_)(Name{}, t);
   }
 
-  Type (*get_)(Name, const void *);
+  Type (*get_)(Name, const void *) = nullptr;
 };
-template <typename Name, typename Type>
-struct PTableEntry<Name(Type)> : PTableEntry<const Name(Type)> {
+template <typename Name, typename Type> struct PTableEntry<Name(Type)> {
   template <typename T>
   constexpr PTableEntry(poly::traits::Id<T> id) noexcept
-      : PTableEntry<const Name(Type)>(id),
-        set_{+[](Name, void *t, const Type &value) -> bool {
+      : set_{+[](Name, void *t, const Type &value) -> bool {
           using poly::set;
           if constexpr (has_validator_v<T, Name(Type)>) {
             using poly::check;
@@ -195,23 +192,31 @@ struct PTableEntry<Name(Type)> : PTableEntry<const Name(Type)> {
           }
           set(Name{}, *static_cast<T *>(t), value);
           return true;
-        }} {}
-  using PTableEntry<const Name(Type)>::get;
+        }},
+        get_(+[](Name, const void *t) -> Type {
+          using poly::get;
+          return get(Name{}, *static_cast<const T *>(t));
+        }) {}
+  constexpr PTableEntry() noexcept = default;
   constexpr bool set(Name, void *t, const Type &value) const {
     assert(set_);
     assert(t);
     return (*set_)(Name{}, t, value);
   }
+  constexpr Type get(Name, const void *t) const {
+    assert(get_);
+    assert(t);
+    return (*get_)(Name{}, t);
+  }
 
-  bool (*set_)(Name, void *, const Type &);
+  bool (*set_)(Name, void *, const Type &) = nullptr;
+  Type (*get_)(Name, const void *) = nullptr;
 };
 template <typename Name, typename Type>
-struct PTableEntry<Name(Type) noexcept>
-    : PTableEntry<const Name(Type) noexcept> {
+struct PTableEntry<Name(Type) noexcept> {
   template <typename T>
   constexpr PTableEntry(poly::traits::Id<T> id) noexcept
-      : PTableEntry<const Name(Type)>(id),
-        set_{+[](Name, void *t, const Type &value) -> bool {
+      : set_{+[](Name, void *t, const Type &value) -> bool {
           using poly::set;
           static_assert(
               noexcept(set(std::declval<Name>(), std::declval<T &>())),
@@ -229,28 +234,42 @@ struct PTableEntry<Name(Type) noexcept>
           }
           set(Name{}, *static_cast<T *>(t), value);
           return true;
-        }} {}
-  using PTableEntry<const Name(Type)>::get;
+        }},
+        get_(+[](Name, const void *t) -> Type {
+          using poly::get;
+          return get(Name{}, *static_cast<const T *>(t));
+        }) {}
+  constexpr PTableEntry() noexcept = default;
   constexpr bool set(Name, void *t, const Type &value) const noexcept {
     assert(set_);
     assert(t);
     return (*set_)(Name{}, t, value);
   }
 
-  void (*set_)(Name, void *, const Type &);
+  constexpr Type get(Name, const void *t) const noexcept {
+    assert(get_);
+    assert(t);
+    return (*get_)(Name{}, t);
+  }
+
+  void (*set_)(Name, void *, const Type &) = nullptr;
+  Type (*get_)(Name, const void *) = nullptr;
 };
 /// @}
 
 /// table of ptable entries properties
 template <POLY_PROP_SPEC... PropertySpec>
-struct PTable : private PTableEntry<PropertySpec>... {
-  using PTableEntry<PropertySpec>::set...;
-  using PTableEntry<PropertySpec>::get...;
+struct PTable : public PTableEntry<PropertySpec>... {
+
+  constexpr PTable() noexcept {}
 
   template <typename T>
   constexpr PTable(poly::traits::Id<T> id) : PTableEntry<PropertySpec>(id)... {}
+
   template <POLY_PROP_SPEC Spec>
-  static constexpr property_offset_type offset(traits::Id<Spec>) noexcept {
+  static property_offset_type offset(traits::Id<Spec>) noexcept {
+    static_assert(
+        (std::is_standard_layout_v<PTableEntry<PropertySpec>> && ...));
     constexpr PTable<PropertySpec...> t;
     const std::byte *this_ =
         static_cast<const std::byte *>(static_cast<const void *>(&t));
@@ -261,8 +280,9 @@ struct PTable : private PTableEntry<PropertySpec>... {
 };
 
 template <typename T, POLY_PROP_SPEC... PropertySpecs>
-inline constexpr PTable<PropertySpecs...> ptable_for =
+inline const PTable<PropertySpecs...> ptable_for =
     PTable<PropertySpecs...>(poly::traits::Id<T>{});
+/// @}
 
 /// returns the Spec in Specs belonging to Name
 template <typename Name, POLY_PROP_SPEC... Specs> struct spec_by_name {
@@ -282,7 +302,7 @@ class PropertyContainer;
 
 template <typename Self, template <typename...> typename List,
           POLY_PROP_SPEC... PropertySpecs>
-class PropertyContainer<Self, List<PropertySpecs...>>
+class POLY_EMPTY_BASE PropertyContainer<Self, List<PropertySpecs...>>
     : public property_injector_for_t<PropertySpecs, Self>... {
   static_assert(
       (poly::traits::is_property_spec_v<PropertySpecs> && ...),
@@ -303,8 +323,7 @@ class PropertyContainer<Self, List<PropertySpecs...>>
       ...));
 
 public:
-  constexpr PropertyContainer(Self &self) noexcept
-      : property_injector_for_t<PropertySpecs, Self>(self)... {}
+  constexpr PropertyContainer() noexcept = default;
 
   constexpr PropertyContainer(const PropertyContainer &) = default;
   constexpr PropertyContainer(PropertyContainer &&) = default;
@@ -322,7 +341,7 @@ public:
   }
 
 protected:
-  template <typename T> constexpr void set_ptable(traits::Id<T>) noexcept {
+  template <typename T> void set_ptable(traits::Id<T>) noexcept {
     ptable_ = &ptable_for<T, PropertySpecs...>;
   }
 
@@ -343,10 +362,11 @@ private:
   }
   const PTable<PropertySpecs...> *ptable_{nullptr};
 };
+
 /// specialization for empty list of @ref PropertySpec "PropertySpecs"
 template <typename Self, template <typename...> typename List>
 class PropertyContainer<Self, List<>> {
-  constexpr PropertyContainer(Self &) noexcept {}
+  constexpr PropertyContainer() noexcept = default;
 
 protected:
   template <typename T> constexpr void set_ptable(traits::Id<T>) noexcept {}
@@ -357,6 +377,7 @@ protected:
 
   constexpr void reset_ptable() noexcept {}
 };
+/// @}
 
 } // namespace detail
 } // namespace poly

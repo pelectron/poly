@@ -1,27 +1,12 @@
 #ifndef POLY_STRORAGE_HPP
 #define POLY_STRORAGE_HPP
+#include "poly/fwd.hpp"
 #include "poly/traits.hpp"
 
 #include <cassert>
 #include <memory>
 
 namespace poly {
-
-template <bool Copyable, std::size_t Size,
-          std::size_t Alignment = alignof(std::max_align_t)>
-class basic_sbo_storage;
-class ref_storage;
-template <bool Copyable, std::size_t Size,
-          std::size_t Alignment = alignof(std::max_align_t)>
-class basic_local_storage;
-template <std::size_t Size, std::size_t Alignment = alignof(std::max_align_t)>
-class local_storage;
-template <std::size_t Size, std::size_t Alignment = alignof(std::max_align_t)>
-class move_only_local_storage;
-template <std::size_t Size, std::size_t Alignment = alignof(std::max_align_t)>
-class sbo_storage;
-template <std::size_t Size, std::size_t Alignment = alignof(std::max_align_t)>
-class move_only_sbo_storage;
 
 namespace detail {
 
@@ -34,10 +19,6 @@ template <std::size_t Size, std::size_t Alignment>
 inline constexpr bool
     is_move_only_local_storage<move_only_local_storage<Size, Alignment>> = true;
 
-template <typename T> inline constexpr bool is_basic_sbo_storage = false;
-template <std::size_t Size, std::size_t Alignment>
-inline constexpr bool is_basic_sbo_storage<basic_sbo_storage<Size, Alignment>> =
-    true;
 template <typename T> inline constexpr bool is_sbo_storage = false;
 template <std::size_t Size, std::size_t Alignment>
 inline constexpr bool is_sbo_storage<sbo_storage<Size, Alignment>> = true;
@@ -190,50 +171,82 @@ template <class T, class... Args> T *construct_at(T *p, Args &&...args) {
   return ::new (static_cast<void *>(p)) T(std::forward<Args>(args)...);
 }
 #endif
+
 struct NoValue {};
 
 template <std::size_t I, typename... Ts> union variant_impl {
-  using value_type = at_t<type_list<Ts...>, I>;
-  using types = type_list<Ts...>;
+  constexpr variant_impl() = default;
+  variant_impl(const variant_impl &) = delete;
+  variant_impl(variant_impl &&) = delete;
+  variant_impl &operator=(const variant_impl &) = delete;
+  variant_impl &operator=(variant_impl &&) = delete;
+
+  template <typename T, typename... Args> constexpr auto &create(Args &&...) {
+    static_assert(detail::always_false<T>, "Library bug!");
+  }
+
+  void copy(const variant_impl &, std::size_t) {}
+
+  void move(variant_impl &&, std::size_t) {}
+
+  constexpr void destroy(std::size_t) {}
+#if __cplusplus > 201703L
+  constexpr ~variant_impl() noexcept {}
+#else
+  ~variant_impl() noexcept {}
+#endif
+};
+template <std::size_t I, typename T1, typename... Ts>
+union variant_impl<I, T1, Ts...> {
+  using value_type = T1;
+  using types = type_list<T1, Ts...>;
+  static constexpr inline bool is_last = sizeof...(Ts) - 1 == I;
+  using rest_type =
+      std::conditional_t<is_last, NoValue, variant_impl<I + 1, Ts...>>;
+
   template <typename T>
   static constexpr bool contains = contains_v<types, std::decay_t<T>>;
 
-  template <typename T>
-  static constexpr bool copy_constructible =
-      std::is_copy_constructible_v<T> and
-      std::is_copy_constructible_v<variant_impl<I + 1, Ts...>>;
-  static constexpr bool move_constructible =
-      std::is_move_constructible_v<value_type> and
-      std::is_move_constructible_v<variant_impl<I + 1, Ts...>>;
-
-  variant_impl<I + 1, Ts...> rest_;
+  rest_type rest_;
   value_type value_;
 
   // ctor for empty variant
   constexpr variant_impl() noexcept : rest_() {}
+  variant_impl(const variant_impl &) = delete;
+  variant_impl(variant_impl &&) = delete;
+  variant_impl &operator=(const variant_impl &) = delete;
+  variant_impl &operator=(variant_impl &&) = delete;
 
   template <typename T, typename... Args>
   constexpr auto &create(Args &&...args) {
+    static_assert(contains<T>, "The type T must be in the list of types the "
+                               "variant storage is defined with.");
     if constexpr (std::is_same_v<T, value_type>) {
       return *construct_at(std::addressof(value_), std::forward<Args>(args)...);
     } else {
-      return rest_.template create<T>(std::forward<Args>(args)...);
+      if constexpr (is_last) {
+        static_assert(detail::always_false<T>, "Library bug!");
+      } else {
+        return rest_.template create<T>(std::forward<Args>(args)...);
+      }
     }
   }
 
-  void copy(const variant_impl &other, std::size_t idx) {
+  constexpr void copy(const variant_impl &other, std::size_t idx) {
     if (I == idx) {
       construct_at(std::addressof(value_), other.value_);
     } else {
-      rest_.copy(other.rest_, idx);
+      if constexpr (not is_last)
+        rest_.copy(other.rest_, idx);
     }
   }
 
-  void move(variant_impl &&other, std::size_t idx) {
+  constexpr void move(variant_impl &&other, std::size_t idx) {
     if (I == idx) {
       construct_at(std::addressof(value_), std::move(other.value_));
     } else {
-      rest_.move(std::move(other.rest_), idx);
+      if constexpr (not is_last)
+        rest_.move(std::move(other.rest_), idx);
     }
   }
 
@@ -241,52 +254,16 @@ template <std::size_t I, typename... Ts> union variant_impl {
     if (I == idx) {
       std::destroy_at(std::addressof(value_));
     } else {
-      rest_.destroy(idx);
+      if constexpr (not is_last)
+        rest_.destroy(idx);
     }
   }
+#if __cplusplus > 201703L
   constexpr ~variant_impl() noexcept {}
+#else
+  ~variant_impl() noexcept {}
+#endif
 };
-template <typename... Ts> union variant_impl<sizeof...(Ts) - 1, Ts...> {
-  using value_type = at_t<type_list<Ts...>, sizeof...(Ts) - 1>;
-  static constexpr inline std::size_t I = sizeof...(Ts) - 1;
-
-  NoValue empty_;
-  value_type value_;
-
-  // ctor for empty variant
-  constexpr variant_impl() noexcept : empty_() {}
-  constexpr ~variant_impl() noexcept {}
-  template <typename T, typename... Args>
-  constexpr value_type &create(Args &&...args) {
-    static_assert(std::is_same_v<T, value_type>);
-    return *construct_at(std::addressof(value_), std::forward<Args>(args)...);
-  }
-  void copy(const variant_impl &other, std::size_t idx) {
-    assert(idx <= (I + 1));
-    if (I == idx) {
-      construct_at(std::addressof(value_), other.value_);
-    } else {
-      empty_ = other.empty_;
-    }
-  }
-
-  void move(variant_impl &&other, std::size_t idx) {
-    assert(idx <= (I + 1));
-    if (I == idx) {
-      construct_at(std::addressof(value_), std::move(other.value_));
-    } else {
-      empty_ = other.empty_;
-    }
-  }
-
-  constexpr void destroy(std::size_t idx) {
-    assert(idx <= (I + 1));
-    if (I == idx) {
-      std::destroy_at(std::addressof(value_));
-    }
-  }
-};
-
 template <bool Copyable, typename... Ts> class variant_storage_impl {
   using index_type = traits::smallest_uint_to_contain<sizeof...(Ts)>;
   variant_impl<0, Ts...> impl_;
@@ -327,10 +304,17 @@ public:
     idx = std::exchange(other.idx, sizeof...(Ts));
   }
 
+#if __cplusplus > 201703L
   constexpr ~variant_storage_impl() {
     if (idx != sizeof...(Ts))
       impl_.destroy(idx);
   }
+#else
+  ~variant_storage_impl() {
+    if (idx != sizeof...(Ts))
+      impl_.destroy(idx);
+  }
+#endif
 
   constexpr variant_storage_impl &
   operator=(variant_storage_impl &&other) noexcept(nothrow_movable and
@@ -352,7 +336,7 @@ public:
   }
 
   template <typename T, typename... Args>
-  T &emplace(Args &&...args) noexcept(std::is_constructible_v<T, Args &&...>) {
+  constexpr T &emplace(Args &&...args) noexcept(std::is_constructible_v<T, Args &&...>) {
     static_assert(poly::contains_v<types, T>,
                   "T ist not a valid variant option");
     impl_.destroy(idx);
@@ -362,22 +346,25 @@ public:
     return t;
   }
 
-  void *data() noexcept {
+  constexpr void *data() noexcept {
     return idx != sizeof...(Ts) ? static_cast<void *>(&impl_) : nullptr;
   }
 
-  const void *data() const noexcept {
+  constexpr const void *data() const noexcept {
     return idx != sizeof...(Ts) ? static_cast<const void *>(&impl_) : nullptr;
   }
 };
-template <typename... Ts>
-class variant_storage_impl<false, Ts...>
-    : public variant_storage_impl<true, Ts...> {
-  using Base = variant_storage_impl<true, Ts...>;
+template <typename... Ts> class variant_storage_impl<false, Ts...> {
+  using index_type = traits::smallest_uint_to_contain<sizeof...(Ts)>;
+  variant_impl<0, Ts...> impl_;
+  index_type idx;
+
+  using types = type_list<Ts...>;
+  template <typename T> static constexpr bool contains = contains_v<types, T>;
 
 public:
-  using types = poly::type_list<Ts...>;
-  static constexpr bool copyable = false;
+  static constexpr bool copyable =
+      conjunction_v<transform_t<types, std::is_copy_constructible>>;
   static constexpr bool nothrow_copyable =
       conjunction_v<transform_t<types, std::is_nothrow_copy_constructible>>;
   static constexpr bool nothrow_movable =
@@ -385,22 +372,65 @@ public:
   static constexpr bool nothrow_destructible =
       conjunction_v<transform_t<types, std::is_nothrow_destructible>>;
 
-  constexpr variant_storage_impl() noexcept = default;
+  constexpr variant_storage_impl() noexcept : impl_(), idx(sizeof...(Ts)) {}
+
+  constexpr variant_storage_impl(const variant_storage_impl &other) = delete;
   constexpr variant_storage_impl(variant_storage_impl &&other) noexcept(
-      nothrow_copyable and nothrow_destructible)
-      : Base(std::move(other)) {}
+      nothrow_movable)
+      : variant_storage_impl() {
+    impl_.move(std::move(other.impl_), other.idx);
+    other.impl_.destroy(idx);
+    idx = std::exchange(other.idx, sizeof...(Ts));
+  }
+
+#if __cplusplus > 201703L
+  constexpr ~variant_storage_impl() {
+    if (idx != sizeof...(Ts))
+      impl_.destroy(idx);
+  }
+#else
+  ~variant_storage_impl() {
+    if (idx != sizeof...(Ts))
+      impl_.destroy(idx);
+  }
+#endif
+
   constexpr variant_storage_impl &
-  operator=(variant_storage_impl &&other) noexcept(nothrow_copyable and
+  operator=(variant_storage_impl &&other) noexcept(nothrow_movable and
                                                    nothrow_destructible) {
-    Base::operator=(std::move(other));
+    impl_.destroy(idx);
+    impl_.move(std::move(other.impl_), other.idx);
+    other.impl_.destroy(idx);
+    idx = std::exchange(other.idx, sizeof...(Ts));
     return *this;
   }
-  variant_storage_impl(const variant_storage_impl &) = delete;
-  variant_storage_impl &operator=(const variant_storage_impl &) = delete;
+
+  constexpr variant_storage_impl &
+  operator=(const variant_storage_impl &other) = delete;
+
+  template <typename T, typename... Args>
+  constexpr T &emplace(Args &&...args) noexcept(std::is_constructible_v<T, Args &&...>) {
+    static_assert(poly::contains_v<types, T>,
+                  "T ist not a valid variant option");
+    impl_.destroy(idx);
+    idx = 0;
+    T &t = impl_.template create<T>(std::forward<Args>(args)...);
+    idx = index_of_v<types, T>;
+    return t;
+  }
+
+  constexpr void *data() noexcept {
+    return idx != sizeof...(Ts) ? static_cast<void *>(&impl_) : nullptr;
+  }
+
+  constexpr const void *data() const noexcept {
+    return idx != sizeof...(Ts) ? static_cast<const void *>(&impl_) : nullptr;
+  }
 };
 } // namespace detail
 
-/// non owing storage. Only contains pointer to object emplaced.
+/// non owing storage. Only contains pointer to object emplaced. Can be
+/// constructed from any non const lvalue reference to any T or Storage type.
 class ref_storage final {
 public:
   template <typename T>
@@ -444,7 +474,7 @@ static_assert(poly::traits::is_storage_v<ref_storage>);
 
 /// local storage implementation.
 ///
-/// Holds object emplaced in a buffer of Size bytes with an alignement of
+/// Holds object emplaced in a buffer of Size bytes with an alignment of
 /// Alignment. Objects greater than Size or stricter alignment than Alignment
 /// cannot be emplaced.
 /// @tparam Copyable specify if the storage is copyable
@@ -1047,12 +1077,25 @@ public:
 /// The variant storage can store an object of type T, if T is in the pack Ts.
 /// Does not depend on std::variant.
 ///
+/// The advantage of using this kind of storage, compared to local_storage, is
+/// that there is no need to generate a static resource table.
+///
 /// Like std::variant, it essentially is a tagged union. The key difference to
-/// std::variant is that the data() method is constant time without having to
-/// rely on std::visit.
+/// std::variant is that the data() member function evaluates only one
+/// conditional (to check if something is contained) and returning the address
+/// of the internal union as a void* if there is something emplaced, instead of
+/// having to rely on std::visit.
 template <typename... Ts>
-using variant_storage =
-    detail::variant_storage_impl<(std::is_copy_constructible_v<Ts> && ...),
-                                 Ts...>;
+class variant_storage : public detail::variant_storage_impl<
+                            (std::is_copy_constructible_v<Ts> && ...), Ts...> {
+public:
+  using Base =
+      detail::variant_storage_impl<(std::is_copy_constructible_v<Ts> && ...),
+                                   Ts...>;
+  using Base::Base;
+  using Base::operator=;
+  using Base::data;
+};
+static_assert(is_storage_v<variant_storage<int, double, float>>);
 } // namespace poly
 #endif

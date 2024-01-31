@@ -6,10 +6,13 @@
 
 #include "poly/type_list.hpp"
 
+#include <cstddef>
+#include <cstdint>
 #include <type_traits>
 #include <utility>
 
 namespace poly {
+template <typename... Ts> class variant_storage;
 
 namespace traits {
 
@@ -72,6 +75,9 @@ template <typename T>
 struct is_storage : public std::conditional_t<is_storage_impl<T, void>::value,
                                               std::true_type, std::false_type> {
 };
+
+template <typename... Ts>
+struct is_storage<::poly::variant_storage<Ts...>> : std::true_type {};
 
 template <typename T> struct is_type_list : std::false_type {};
 
@@ -216,68 +222,158 @@ struct invocable<Ret(Args...) const noexcept, F>
 /// @}
 /// @}
 
+template <typename T> struct is_property_spec : std::false_type {};
+
 /// get the value type of a PropertySpec
 template <typename PropertySpec>
-using value_type_t = typename func_first_arg<PropertySpec>::type;
+using value_type_t =
+    std::enable_if_t<is_property_spec<PropertySpec>::value,
+                     typename func_first_arg<PropertySpec>::type>;
 
 /// check if a PropertySpec is const
 template <typename PropertySpec>
-inline constexpr bool is_const_v =
-    std::is_const_v<typename func_return_type<PropertySpec>::type>;
+inline constexpr bool is_const_v = std::enable_if_t<
+    is_property_spec<PropertySpec>::value,
+    std::is_const<typename func_return_type<PropertySpec>::type>>::value;
+
+template <typename T> struct is_method_spec : std::false_type {};
 
 /// get the return type of a MethodSpec
 template <typename MethodSpec>
-using return_type_t = typename func_return_type<MethodSpec>::type;
+using return_type_t =
+    std::enable_if_t<is_method_spec<MethodSpec>::value,
+                     typename func_return_type<MethodSpec>::type>;
 
-template <typename T> struct is_method_spec : std::false_type {};
 template <typename R, typename M, typename... Args>
-struct is_method_spec<R(M, Args...)> : std::true_type {};
+struct is_method_spec<R(M, Args...)>
+    : std::conditional_t<std::is_empty_v<M>, std::true_type, std::false_type> {
+};
 template <typename R, typename M, typename... Args>
-struct is_method_spec<R(M, Args...) const> : std::true_type {};
+struct is_method_spec<R(M, Args...) const>
+    : std::conditional_t<std::is_empty_v<M>, std::true_type, std::false_type> {
+};
 template <typename R, typename M, typename... Args>
-struct is_method_spec<R(M, Args...) noexcept> : std::true_type {};
+struct is_method_spec<R(M, Args...) noexcept>
+    : std::conditional_t<std::is_empty_v<M>, std::true_type, std::false_type> {
+};
 template <typename R, typename M, typename... Args>
-struct is_method_spec<R(M, Args...) const noexcept> : std::true_type {};
+struct is_method_spec<R(M, Args...) const noexcept>
+    : std::conditional_t<std::is_empty_v<M>, std::true_type, std::false_type> {
+};
 
 template <typename T>
 inline constexpr bool is_method_spec_v = is_method_spec<T>::value;
 
-template <typename T> struct is_property_spec : std::false_type {};
 template <typename Name, typename Type>
-struct is_property_spec<Name(Type)> : std::true_type {};
+struct is_property_spec<Name(Type)>
+    : std::conditional_t<std::is_empty_v<Name>, std::true_type,
+                         std::false_type> {};
 template <typename Name, typename Type>
-struct is_property_spec<const Name(Type)> : std::true_type {};
+struct is_property_spec<const Name(Type)>
+    : std::conditional_t<std::is_empty_v<Name>, std::true_type,
+                         std::false_type> {};
 template <typename Name, typename Type>
-struct is_property_spec<Name(Type) noexcept> : std::true_type {};
+struct is_property_spec<Name(Type) noexcept>
+    : std::conditional_t<std::is_empty_v<Name>, std::true_type,
+                         std::false_type> {};
 template <typename Name, typename Type>
-struct is_property_spec<const Name(Type) noexcept> : std::true_type {};
+struct is_property_spec<const Name(Type) noexcept>
+    : std::conditional_t<std::is_empty_v<Name>, std::true_type,
+                         std::false_type> {};
 
 template <typename T>
 inline constexpr bool is_property_spec_v = is_property_spec<T>::value;
 
+template <typename PropertySpec>
+using property_name_t = std::enable_if_t<
+    is_property_spec_v<PropertySpec>,
+    std::remove_const_t<typename traits::func_return_type<PropertySpec>::type>>;
+
+template <typename PropertySpec>
+inline constexpr bool is_nothrow_property_v =
+    std::enable_if_t<is_property_spec_v<PropertySpec>,
+                     func_is_noexcept<PropertySpec>>::value;
+
 template <auto value>
-using smallest_uint_to_contain =
-    std::conditional_t <
-    std::size_t(value)<
-        std::size_t(256), std::uint8_t,
-        std::conditional_t<std::size_t(value) < (std::size_t(1) << 16), std::uint16_t,
-                           std::conditional_t<std::size_t(value) < (std::size_t(1) << 32),
-                                              std::uint32_t, std::uint64_t>>>;
+using smallest_uint_to_contain = std::conditional_t<
+    std::size_t(value) <= 0xFFu, std::uint8_t,
+    std::conditional_t<std::size_t(value) <= 0xFFFFu, std::uint16_t,
+                       std::conditional_t<std::size_t(value) <= 0xFFFFFFFFu,
+                                          std::uint32_t, std::uint64_t>>>;
+
+/// evaluates to true if F is invocable with the signature Sig.
+template <typename Sig, typename F>
+inline constexpr bool is_invocable_v =
+    ::poly::traits::invocable_r<Sig, F>::value;
+template <typename T, typename PropertySpec> std::false_type has_validator(...);
+template <typename T, typename PropertySpec>
+std::true_type has_validator(decltype(sizeof(
+    check(std::remove_const_t<
+              typename traits::func_return_type<PropertySpec>::type>{},
+          std::declval<const T &>(),
+          std::declval<const value_type_t<PropertySpec> &>()))));
+
 } // namespace traits
 
-/// @addtogroup traits type traits
-/// @{
-
 /// @addtogroup PropertySpec PropertySpec Concept
-/// A PropertySpec defines the name of a property and its value type. It is a
-/// function type with the following allowed patterns:
-/// - 'PropertyName(ValueType)': a read/write property with name PropertyName
-/// and value type ValueType.
-/// - 'const PropertyName(ValueType)': a read only property
-/// - 'PropertyName(ValueType) noexcept': a read/write property with noexcept
-/// access
-/// - 'const PropertyName(ValueType) noexcept': a read only property with
-/// noexcept access
+/// A PropertySpec defines the name, value type and access of a property.
+///
+/// It is a function type with the following allowed patterns:
+/// - \verbatim PropertyName(ValueType) \endverbatim a read/write property with
+/// name PropertyName and value type ValueType.
+/// - \verbatim const PropertyName(ValueType) \endverbatim a read only property
+/// - \verbatim PropertyName(ValueType) noexcept \endverbatim a read/write
+/// property with noexcept access
+/// - \verbatim const PropertyName(ValueType) noexcept \endverbatim a read only
+/// property with noexcept access
+///
+/// The PropertyName is a tag type and does not contain any data. It is simply
+/// used to tag the @ref property_extension "property extension functions".
+/// PropertyName must be completely defined. Can either be defined as an empty
+/// struct, i.e. ```struct PropertyName{};```, or with the @ref POLY_PROPERTY
+/// macro, i.e. ```POLY_PROPERTY(PropertyName)```. Using the macro will use name
+/// injection if enabled.
+///
+/// ValueType is the actual type used to get (and optionally set) the property.
+///
+/// Example:
+///
+/// A read only property with the name "size" and type size_t should be added to
+/// an Object.
+///
+/// Defining the name is done as described above:
+/// ```
+/// POLY_PROPERTY(size)
+/// // or struct size{};
+/// ```
+/// The corresponding signature can be declared as follows, noexcept is added
+/// because size_t is nothrow copyable and no checkers (see poly::check()) are
+/// involved.
+/// ```
+/// using SizeSpec = const size(size_t) noexcept;
+/// ```
+///
+/// Objects using SizeSpec now provide the size property, accessible with
+/// ```
+/// obj.get<size>()
+/// ```
+/// and
+/// ```
+/// obj.set<size>(size_t{...})
+/// ```
+///
+/// If name injection is enabled (default), size can also be accessed with
+/// ```
+/// obj.size
+/// ```
+///
+/// Several type traits are available to access information about PropertySpecs.
+///
+/// - poly::is_property_spec_v<Spec> : true if Spec is a PropertySpec.
+/// - poly::is_nothrow_property_v<Spec> : true if Spec is specified noexcept.
+/// - poly::is_const_property_v<Spec> : true if Spec is specified const.
+/// - poly::value_type_t<Spec> : provides the ValueType of a Spec.
+/// - poly::property_name_t<Spec>: provides the PropertyName of Spec.
 /// @{
 
 /// evaluates to true if T is a valid PropertySpec.
@@ -290,29 +386,17 @@ using value_type_t = traits::value_type_t<PropertySpec>;
 
 /// get the name of a PropertySpec
 template <typename PropertySpec>
-using property_name_t =
-    std::remove_const_t<typename traits::func_return_type<PropertySpec>::type>;
-
-template <typename T, typename PropertySpec> std::false_type has_validator(...);
-template <typename T, typename PropertySpec>
-std::integral_constant<
-    bool, std::is_same_v<
-              decltype(check(
-                  property_name_t<PropertySpec>{}, std::declval<const T &>(),
-                  std::declval<const value_type_t<PropertySpec> &>())),
-              bool>>
-has_validator(decltype(sizeof(
-    check(property_name_t<PropertySpec>{}, std::declval<const T &>(),
-          std::declval<const value_type_t<PropertySpec> &>()))));
+using property_name_t = traits::property_name_t<PropertySpec>;
 
 /// evaluates to true if a PropertySpec is specified noexcept
 template <typename PropertySpec>
 inline constexpr bool is_nothrow_property_v =
-    traits::func_is_noexcept<PropertySpec>::value;
+    traits::is_nothrow_property_v<PropertySpec>;
 
+/// evaluates to true if valid check() is defined for T and the PropertySpec
 template <typename T, typename PropertySpec>
 inline constexpr bool has_validator_v =
-    decltype(has_validator<T, PropertySpec>(0))::value;
+    decltype(traits::has_validator<T, PropertySpec>(0))::value;
 
 /// evaluates to true if a PropertySpec is const, i.e. read only.
 template <typename PropertySpec>
@@ -321,23 +405,24 @@ inline constexpr bool is_const_property_v = traits::is_const_v<PropertySpec>;
 /// @}
 
 /// @addtogroup MethodSpec MethodSpec Concept
-///
-/// A @ref MethodSpec defines the return type, name, and arguments of a method.
+/// A MethodSpec defines the return type, name, and arguments of a method.
 ///
 /// A method, in the context of poly, is a member function to be called on an
-/// interface. It is a function signature type with the allowed patterns:
-/// - ReturnType(MethodName, ArgumentTypes...): specifies a method with return
-/// type ReturnType, name MethodName, and arguments of type ArgumentTypes.
-/// - ReturnType(MethodName, ArgumentTypes...) const: specifies a const method,
-/// i.e. the access to the object it is called on is immutable.
-/// - ReturnType(MethodName, ArgumentTypes...) noexcept: specifies a non
-/// throwing method.
-/// - ReturnType(MethodName, ArgumentTypes...) const noexcept: specifies a const
-/// non throwing method.
+/// Object. It is a function signature type with the allowed patterns:
+/// - \verbatim ReturnType(MethodName, ArgumentTypes...) \endverbatim specifies
+/// a method with return type ReturnType, name MethodName, and arguments of type
+/// ArgumentTypes.
+/// - \verbatim ReturnType(MethodName, ArgumentTypes...) const \endverbatim
+/// specifies a const method, i.e. the Object it is called on is not modified.
+/// - \verbatim ReturnType(MethodName, ArgumentTypes...) noexcept \endverbatim
+/// specifies a non throwing method.
+/// - \verbatim ReturnType(MethodName, ArgumentTypes...) const noexcept
+/// \endverbatim specifies a non throwing const method.
 ///
 /// The MethodName is a tag type and does not contain any data. It is simply
 /// used to tag @ref method_extension "extend" to enable methods with identical
 /// arguments and overloaded methods.
+///
 /// @{
 
 /// evaluates to true if T is a valid MethodSpec.
@@ -365,9 +450,10 @@ inline constexpr bool is_const_method_v =
 /// @}
 
 /// @addtogroup Storage Storage Concept
+/// Storages represent a type erased container.
 ///
-/// Storage is a type erased container. Objects of arbitrary types can be
-/// emplaced, that is they are stored owning or non-owning, in a Storage object.
+/// Objects of arbitrary types can be emplaced, that is they are
+/// stored owning or non-owning, in a Storage object.
 ///
 /// Objects are emplaced into a Storage with its emplace() template method. The
 /// first template parameter specifies the type of the emplaced object. The
@@ -421,11 +507,6 @@ template <typename T>
 inline constexpr bool is_storage_v = traits::is_storage_v<T>;
 /// @}
 
-/// evaluates to true if F is invocable with the signature Sig.
-template <typename Sig, typename F>
-inline constexpr bool is_invocable_v = traits::invocable_r<Sig, F>::value;
-/// @}
-
 #if __cplusplus > 201703L
 // enabled if c++ std > c++17
 /** @concept Storage
@@ -445,16 +526,5 @@ concept PropertySpecification = ::poly::is_property_spec_v<T>;
 
 #endif
 } // namespace poly
-
-#if __cplusplus > 201703L
-// enabled if c++ std > c++17
-#define POLY_STORAGE ::poly::Storage
-#define POLY_METHOD_SPEC ::poly::MethodSpecification
-#define POLY_PROP_SPEC ::poly::PropertySpecification
-#else
-#define POLY_STORAGE typename
-#define POLY_METHOD_SPEC typename
-#define POLY_PROP_SPEC typename
-#endif
 
 #endif

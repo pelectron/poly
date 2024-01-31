@@ -62,9 +62,33 @@
 #endif
 
 #ifndef POLY_MAX_METHOD_COUNT
-#define POLY_MAX_METHOD_COUNT 255
+#define POLY_MAX_METHOD_COUNT 256
 #endif
 #ifndef POLY_MAX_PROPERTY_COUNT
-#define POLY_MAX_PROPERTY_COUNT 255
+#define POLY_MAX_PROPERTY_COUNT 256
 #endif
+
+#if defined(_MSC_VER) && _MSC_VER >= 1900
+#define POLY_EMPTY_BASE __declspec(empty_bases)
+#else
+#define POLY_EMPTY_BASE
+#endif
+
+#if defined(_MSC_VER)
+#define POLY_NO_UNIQUE_ADDRESS [[msvc::no_unique_address]]
+#else
+#define POLY_NO_UNIQUE_ADDRESS [[no_unique_address]]
+#endif
+
+#if __cplusplus > 201703L
+// enabled if c++ std >= c++20
+#define POLY_STORAGE ::poly::Storage
+#define POLY_METHOD_SPEC ::poly::MethodSpecification
+#define POLY_PROP_SPEC ::poly::PropertySpecification
+#else
+#define POLY_STORAGE typename
+#define POLY_METHOD_SPEC typename
+#define POLY_PROP_SPEC typename
+#endif
+
 #endif

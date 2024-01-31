@@ -4,7 +4,7 @@
 #include "poly/traits.hpp"
 
 #include <cassert>
-namespace poly::detail{
+namespace poly::detail {
 
 /// The MethodInjector is used to inject methods by name.
 /// @{
@@ -19,7 +19,7 @@ struct MethodInjector {};
 /// obj.Method(args...) instead of obj.call<Method>(args...).
 /// @{
 template <POLY_METHOD_SPEC Spec, typename Self>
-struct MethodInjector<
+struct POLY_EMPTY_BASE MethodInjector<
     Spec, Self,
     std::void_t<typename method_name_t<Spec>::template injector<Self, Spec>>>
     : public method_name_t<Spec>::template injector<Self, Spec> {};
@@ -27,7 +27,7 @@ struct MethodInjector<
 /// sepcialization for overloaded methods
 template <template <typename...> typename List, POLY_METHOD_SPEC... MethodSpecs,
           typename Self>
-struct MethodInjector<
+struct POLY_EMPTY_BASE MethodInjector<
     List<MethodSpecs...>, Self,
     std::void_t<typename poly::method_name_t<at_t<List<MethodSpecs...>, 0>>::
                     template injector<Self, List<MethodSpecs...>>>>
@@ -68,15 +68,20 @@ struct build_method_sets<List<Name, Names...>, List<Specs...>> {
   using rest = build_method_sets<List<Names...>, typename bms::output_list>;
   using type = typename concat<typename bms::spec, typename rest::type>::type;
 };
+
 /// turns the flat list of MethodSpecs into a list of non overloaded MethodSpecs
 /// and type lists of overloaded MethodSpecs.
 ///
 /// Pseudocode:
+///
 /// for non duplicate name in the list of MethodSpecs, append the MethodSpec to
-/// the output for each duplicate name:
-///    filter the list of MethodSpecs for the MethodSpec with the same name,
+/// the output
+///
+/// for each duplicate name:
+///    filter the list of MethodSpecs for MethodSpecs with the same name,
 ///    add them into a list
 ///    add the list to the output as an element
+///
 /// Example:
 /// - collapse_overloads<type_list<void(m1),void(m2)>>::type ==
 /// type_list<void(m1),void(m2)>
@@ -94,12 +99,25 @@ struct collapse_overloads<List<MethodSpecs...>>
           typename remove_duplicates<List<method_name_t<MethodSpecs>...>>::type,
           List<MethodSpecs...>> {};
 
+/// test code for collapse overloads
+/// @{
+struct M1 {};
+struct M2 {};
+struct M3 {};
 static_assert(
     std::is_same_v<
-        type_list<type_list<int(float, float), int(float, int)>, int(int),
-                  int(double)>,
-        typename collapse_overloads<type_list<
-            int(float, float), int(int), int(double), int(float, int)>>::type>);
+        type_list<type_list<int(M1, float), int(M1, int)>, int(M2), int(M3)>,
+        typename collapse_overloads<
+            type_list<int(M1, float), int(M2), int(M3), int(M1, int)>>::type>);
+static_assert(
+    std::is_same_v<
+        type_list<type_list<int(M1, float), int(M1, int)>,
+                  type_list<int(M2), int(M2, float)>,
+                  type_list<int(M3), void(M3, int), void(M3, double)>>,
+        typename collapse_overloads<
+            type_list<int(M1, float), int(M2), int(M3), void(M3, int),
+                      int(M1, int), void(M3, double), int(M2, float)>>::type>);
+/// @}
 /// @}
 
 /// This struct provides the static member function template jump(). jump() is
@@ -152,7 +170,6 @@ struct trampoline<Ret(Method, Args...) const noexcept> {
 };
 /// @}
 
-/// @addtogroup vtable Vtable
 /// Individual VTable entry. Stores the address of trampoline<MethodSpec>::jump
 /// and provides a function call operator to invoke the function.
 /// @{
@@ -234,11 +251,12 @@ struct VTableEntry<Ret(Method, Args...) const noexcept> {
 /// @}
 
 /// offset value type for interface vtbale
-using method_offset_type = traits::smallest_uint_to_contain<POLY_MAX_METHOD_COUNT>;
+using method_offset_type =
+    traits::smallest_uint_to_contain<POLY_MAX_METHOD_COUNT - 1>;
 
 /// complete vtable for a set of  @ref MethodSpec "method specs"
 template <POLY_METHOD_SPEC... MethodSpecs>
-struct VTable : public VTableEntry<MethodSpecs>... {
+struct POLY_EMPTY_BASE VTable : private VTableEntry<MethodSpecs>... {
   using VTableEntry<MethodSpecs>::operator()...;
   template <typename T>
   constexpr VTable(poly::traits::Id<T> id) noexcept
@@ -246,6 +264,7 @@ struct VTable : public VTableEntry<MethodSpecs>... {
 
   constexpr VTable() noexcept {};
 
+  /// used by InterfaceVTable
   template <POLY_METHOD_SPEC Spec>
   static method_offset_type offset(traits::Id<Spec>) noexcept {
     constexpr VTable<MethodSpecs...> t;
@@ -258,34 +277,38 @@ struct VTable : public VTableEntry<MethodSpecs>... {
 };
 
 /// object vtable for T and a set of @ref MethodSpec "method specs"
-template <typename T, POLY_METHOD_SPEC... MethodSpecs>
-inline constexpr VTable<MethodSpecs...> vtable_for =
-    VTable<MethodSpecs...>(poly::traits::Id<T>{});
+template <typename T, POLY_TYPE_LIST MethodSpecs>
+inline constexpr auto vtable_for =
+    apply_t<MethodSpecs, VTable>(poly::traits::Id<T>{});
 
 /// The MethodContainer holds a pointer to the vtable, or is empty if the
 /// provided list of MethodSpecs is empty.
 /// @tparam Self the interface type that inherits from MethodContainer
 /// @tparam ListOfSpecs TypeList of MethodSpecs
-template <typename Self, POLY_TYPE_LIST ListOfSpecs, POLY_TYPE_LIST>
-class MethodContainerImpl;
+template <typename Self, POLY_TYPE_LIST ListOfSpecs,
+          POLY_TYPE_LIST CollapsedOverloads>
+class POLY_EMPTY_BASE MethodContainerImpl;
+
 template <typename Self, template <typename...> typename List,
-          POLY_METHOD_SPEC... MethodSpecs, typename... CollapsedOverloads>
-class MethodContainerImpl<Self, List<MethodSpecs...>,
-                          List<CollapsedOverloads...>>
+          typename... MethodSpecs, typename... CollapsedOverloads>
+class POLY_EMPTY_BASE
+    MethodContainerImpl<Self, List<MethodSpecs...>, List<CollapsedOverloads...>>
     : public MethodInjector<CollapsedOverloads, Self>... {
 public:
+  using Table = VTable<MethodSpecs...>;
+
   template <typename MethodName, typename... Args>
   static constexpr bool nothrow_callable =
-      noexcept((*std::declval<const VTable<MethodSpecs...> *>())(
+      noexcept((*std::declval<const Table *>())(
           MethodName{}, std::declval<void *>(), std::declval<Args>()...));
 
   constexpr MethodContainerImpl() noexcept : vtable_(nullptr) {}
-  constexpr MethodContainerImpl(const VTable<MethodSpecs...> *vtable) noexcept
+  constexpr MethodContainerImpl(const Table *vtable) noexcept
       : vtable_(vtable) {}
 
   template <typename T>
   constexpr MethodContainerImpl(traits::Id<T>) noexcept
-      : vtable_(&vtable_for<T, MethodSpecs...>) {}
+      : vtable_(&vtable_for<T, List<MethodSpecs...>>) {}
 
   template <typename MethodName, typename... Args>
   constexpr decltype(auto)
@@ -303,16 +326,12 @@ public:
 
 protected:
   template <typename T> constexpr void set_vtable(traits::Id<T>) {
-    vtable_ = &vtable_for<T, MethodSpecs...>;
+    vtable_ = &vtable_for<T, List<MethodSpecs...>>;
   }
 
-  constexpr void set_vtable(const VTable<MethodSpecs...> *vtable) noexcept {
-    vtable_ = vtable;
-  }
+  constexpr void set_vtable(const Table *vtable) noexcept { vtable_ = vtable; }
 
-  constexpr const VTable<MethodSpecs...> *vtable() const noexcept {
-    return vtable_;
-  }
+  constexpr const Table *vtable() const noexcept { return vtable_; }
 
   constexpr void reset_vtable() noexcept { vtable_ = nullptr; }
 
@@ -321,8 +340,10 @@ private:
   constexpr const Self &self() const noexcept {
     return *static_cast<const Self *>(this);
   }
-  const VTable<MethodSpecs...> *vtable_;
+  const Table *vtable_;
 };
+
+/// specialization for empty method list
 template <typename Self, template <typename...> typename List>
 class MethodContainerImpl<Self, List<>, List<>> {
 protected:
@@ -332,10 +353,11 @@ protected:
 
   constexpr void reset_vtable() noexcept {}
 };
+
 template <typename Self, POLY_TYPE_LIST ListOfMethodSpecs>
 using MethodContainer =
     MethodContainerImpl<Self, ListOfMethodSpecs,
                         typename collapse_overloads<ListOfMethodSpecs>::type>;
 
-}
+} // namespace poly::detail
 #endif

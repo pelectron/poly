@@ -1,6 +1,7 @@
 #ifndef POLY_TYPE_LIST_HPP
 #define POLY_TYPE_LIST_HPP
 #include "poly/always_false.hpp"
+
 #include <cstddef>
 #include <type_traits>
 
@@ -14,6 +15,13 @@ template <typename List, typename T> struct push_front;
 template <template <typename...> typename List, typename... Ts, typename T>
 struct push_front<List<Ts...>, T> {
   using type = List<T, Ts...>;
+};
+
+template <typename List, template <typename...> typename T> struct apply;
+template <template <typename...> typename List,
+          template <typename...> typename T, typename... Ts>
+struct apply<List<Ts...>, T> {
+  using type = T<Ts...>;
 };
 
 /// Gets the index of T in the type list, if T is in the List.
@@ -41,19 +49,26 @@ template <template <typename...> typename List, typename... Ts, typename T>
 struct index_of<List<Ts...>, T> : index_of_impl<List<Ts...>, T, 0> {};
 /// @}
 
-template <typename List, std::size_t N, std::size_t I> struct at_impl;
+template <typename List, std::size_t N, std::size_t I> struct at_impl {
+  using type = List;
+};
 
 template <template <typename...> typename List, typename... Ts, typename T1,
           std::size_t N, std::size_t I>
-struct at_impl<List<T1, Ts...>, N, I> : at_impl<List<Ts...>, N + 1, I> {};
-
-template <template <typename...> typename List, typename... Ts, typename T1,
-          std::size_t I>
-struct at_impl<List<T1, Ts...>, I, I> {
-  using type = T1;
+struct at_impl<List<T1, Ts...>, N, I> {
+  using type =
+      std::conditional_t<N == I, T1,
+                         typename at_impl<List<Ts...>, N + 1, I>::type>;
 };
 
-template <typename List, std::size_t I> struct at : at_impl<List, 0, I> {};
+template <typename List, std::size_t I> struct at {
+  using type = typename at_impl<List, 0, I>::type;
+};
+
+static_assert(
+    std::is_same_v<char, typename at<type_list<int, char, float>, 1>::type>);
+static_assert(
+    std::is_same_v<float, typename at<type_list<int, char, float>, 2>::type>);
 
 template <typename InList, typename OutList, template <typename> typename Trait>
 struct filter_impl;
@@ -264,6 +279,9 @@ inline constexpr bool is_type_list_v = detail::is_type_list<T>::value;
 
 template <typename List, typename T>
 inline constexpr bool contains_v = detail::contains<List, T>::value;
+
+template <typename List, template <typename...> typename T>
+using apply_t = typename detail::apply<List, T>::type;
 
 #if __cplusplus > 201703L
 /// TypeList concept
