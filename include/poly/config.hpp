@@ -73,11 +73,14 @@
 #else
 #define POLY_EMPTY_BASE
 #endif
-
+#if __has_cpp_attribute(no_unique_address)
 #if defined(_MSC_VER)
 #define POLY_NO_UNIQUE_ADDRESS [[msvc::no_unique_address]]
 #else
 #define POLY_NO_UNIQUE_ADDRESS [[no_unique_address]]
+#endif
+#else
+#define POLY_NO_UNIQUE_ADDRESS
 #endif
 
 #if __cplusplus > 201703L
