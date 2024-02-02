@@ -22,3 +22,7 @@ option( 'default_extend',
         type: 'boolean', 
         value: true, 
         description: 'Enable the default implementation of extend().')
+option( 'tests',
+        type: 'boolean',
+        value: true,
+        description: 'Enabel buidling of tests. Requires Catch3.')

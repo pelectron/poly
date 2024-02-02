@@ -1,3 +1,18 @@
+/**
+ *  Copyright 2024 Pelé Constam
+ *
+ *  Licensed under the Apache License, Version 2.0 (the "License");
+ *  you may not use this file except in compliance with the License.
+ *  You may obtain a copy of the License at
+ *
+ *  http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ */
 #ifndef POLY_OBJECT_PROPERTY_HPP
 #define POLY_OBJECT_PROPERTY_HPP
 #include "poly/config.hpp"
@@ -15,12 +30,12 @@ using property_offset_type =
 /// PropertySpec
 /// @{
 template <POLY_PROP_SPEC PropertySpec, typename Self, typename = void>
-struct has_injector : std::false_type {};
+struct has_property_injector : std::false_type {};
 template <POLY_PROP_SPEC PropertySpec, typename Self>
-struct has_injector<PropertySpec, Self,
-                    std::void_t<typename property_name_t<
-                        PropertySpec>::template injector<Self, PropertySpec>>>
-    : std::true_type {};
+struct has_property_injector<
+    PropertySpec, Self,
+    std::void_t<typename property_name_t<PropertySpec>::template injector<
+        Self, PropertySpec>>> : std::true_type {};
 /// @}
 
 /// The PropertyInjector class eitheris an empty base class, or inherits from
@@ -36,13 +51,12 @@ struct PropertyInjector {};
 template <POLY_PROP_SPEC PropertySpec, typename Self>
 struct PropertyInjector<PropertySpec, Self, true>
     : public property_name_t<PropertySpec>::template injector<Self,
-                                                              PropertySpec> {
-};
+                                                              PropertySpec> {};
 
 template <POLY_PROP_SPEC PropertySpec, typename Self>
 using property_injector_for_t =
     PropertyInjector<PropertySpec, Self,
-                     has_injector<PropertySpec, Self>::value>;
+                     has_property_injector<PropertySpec, Self>::value>;
 /// @}
 
 /// The type of the injected member. It provides a conversion operator to Type
@@ -58,7 +72,7 @@ using property_injector_for_t =
 /// @{
 template <typename Self, typename Injector, typename Name, typename Type,
           bool Const, bool NoThrow>
-class InjectedProperty {
+class POLY_EMPTY_BASE InjectedProperty {
 public:
   using type = Type;
 
@@ -95,7 +109,8 @@ private:
 
 template <typename Self, typename Injector, typename Name, typename Type,
           bool NoThrow>
-class InjectedProperty<Self, Injector, Name, Type, true, NoThrow> {
+class POLY_EMPTY_BASE
+    InjectedProperty<Self, Injector, Name, Type, true, NoThrow> {
 public:
   using type = Type;
 
@@ -257,17 +272,18 @@ struct PTableEntry<Name(Type) noexcept> {
 };
 /// @}
 
-/// table of ptable entries properties
+/// table of ptable entries
 template <POLY_PROP_SPEC... PropertySpec>
 struct PTable : public PTableEntry<PropertySpec>... {
 
   constexpr PTable() noexcept {}
 
   template <typename T>
-  constexpr PTable(poly::traits::Id<T> id) : PTableEntry<PropertySpec>(id)... {}
+  constexpr PTable(poly::traits::Id<T> id) noexcept
+      : PTableEntry<PropertySpec>(id)... {}
 
   template <POLY_PROP_SPEC Spec>
-  static property_offset_type offset(traits::Id<Spec>) noexcept {
+  static property_offset_type property_offset(traits::Id<Spec>) noexcept {
     static_assert(
         (std::is_standard_layout_v<PTableEntry<PropertySpec>> && ...));
     constexpr PTable<PropertySpec...> t;
@@ -288,96 +304,11 @@ inline const PTable<PropertySpecs...> ptable_for =
 template <typename Name, POLY_PROP_SPEC... Specs> struct spec_by_name {
   template <typename T>
   using predicate = std::is_same<property_name_t<T>, Name>;
+  using list = filter_t<type_list<Specs...>, predicate>;
+  static_assert(detail::list_size<list>::value == 1,
+                "No property with such name exists");
   using type = at_t<filter_t<type_list<Specs...>, predicate>, 0>;
 };
-
-/// This class holds a pointer to a property table, if the provided list of
-/// PropertySpecs is not empty. It provides the get and set method for
-/// properties, as well as access to injected properties by name.
-/// @{
-/// @tparam ListOfPropertySpecs TypeList of PropertySpec
-/// "PropertySpecs".
-template <typename Self, POLY_TYPE_LIST ListOfPropertySpecs>
-class PropertyContainer;
-
-template <typename Self, template <typename...> typename List,
-          POLY_PROP_SPEC... PropertySpecs>
-class POLY_EMPTY_BASE PropertyContainer<Self, List<PropertySpecs...>>
-    : public property_injector_for_t<PropertySpecs, Self>... {
-  static_assert(
-      (poly::traits::is_property_spec_v<PropertySpecs> && ...),
-      "The provided PropertySpecs must be valid PropertySpecs, i.e. a funcion "
-      "type with signature [const] PropertyName(Type) [noexcept].");
-  template <typename Name>
-  using spec_for = typename spec_by_name<Name, PropertySpecs...>::type;
-  template <typename Name> using value_type_for = value_type_t<spec_for<Name>>;
-  template <typename Name>
-  static constexpr bool is_nothrow = is_nothrow_property_v<spec_for<Name>>;
-  template <typename Name>
-  static constexpr bool is_const = is_const_property_v<spec_for<Name>>;
-
-  template <typename, POLY_TYPE_LIST> friend class InterfacePropertyContainer;
-
-  static_assert((
-      std::is_standard_layout_v<property_injector_for_t<PropertySpecs, Self>> &&
-      ...));
-
-public:
-  constexpr PropertyContainer() noexcept = default;
-
-  constexpr PropertyContainer(const PropertyContainer &) = default;
-  constexpr PropertyContainer(PropertyContainer &&) = default;
-  constexpr PropertyContainer &operator=(const PropertyContainer &) = default;
-  constexpr PropertyContainer &operator=(PropertyContainer &&) = default;
-
-  template <typename Name, typename = std::enable_if_t<not is_const<Name>>>
-  constexpr bool
-  set(const value_type_for<Name> &value) noexcept(is_nothrow<Name>) {
-    return ptable_->set(Name{}, self().data(), value);
-  }
-  template <typename Name>
-  constexpr value_type_for<Name> get() const noexcept(is_nothrow<Name>) {
-    return ptable_->get(Name{}, self().data());
-  }
-
-protected:
-  template <typename T> void set_ptable(traits::Id<T>) noexcept {
-    ptable_ = &ptable_for<T, PropertySpecs...>;
-  }
-
-  constexpr void set_ptable(const PTable<PropertySpecs...> *ptable) noexcept {
-    ptable_ = ptable;
-  }
-
-  constexpr const PTable<PropertySpecs...> *ptable() const noexcept {
-    return ptable_;
-  }
-
-  constexpr void reset_ptable() noexcept { ptable_ = nullptr; }
-
-private:
-  constexpr Self &self() noexcept { return *static_cast<Self *>(this); }
-  constexpr const Self &self() const noexcept {
-    return *static_cast<const Self *>(this);
-  }
-  const PTable<PropertySpecs...> *ptable_{nullptr};
-};
-
-/// specialization for empty list of @ref PropertySpec "PropertySpecs"
-template <typename Self, template <typename...> typename List>
-class PropertyContainer<Self, List<>> {
-  constexpr PropertyContainer() noexcept = default;
-
-protected:
-  template <typename T> constexpr void set_ptable(traits::Id<T>) noexcept {}
-
-  constexpr void set_ptable(const void *ptable) noexcept {}
-
-  constexpr const void *ptable() const noexcept { return nullptr; }
-
-  constexpr void reset_ptable() noexcept {}
-};
-/// @}
 
 } // namespace detail
 } // namespace poly

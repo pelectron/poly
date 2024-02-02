@@ -1,3 +1,18 @@
+/**
+ *  Copyright 2024 Pelé Constam
+ *
+ *  Licensed under the Apache License, Version 2.0 (the "License");
+ *  you may not use this file except in compliance with the License.
+ *  You may obtain a copy of the License at
+ *
+ *  http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ */
 #ifndef POLY_OBJECT_TABLE_HPP
 #define POLY_OBJECT_TABLE_HPP
 #include "poly/method.hpp"
@@ -5,7 +20,6 @@
 
 #include <cassert>
 namespace poly::detail {
-
 /// The MethodInjector is used to inject methods by name.
 /// @{
 /// default method injector does nothing
@@ -35,7 +49,6 @@ struct POLY_EMPTY_BASE MethodInjector<
           template injector<Self, List<MethodSpecs...>> {};
 /// @}
 /// @}
-
 template <typename Name, POLY_TYPE_LIST SpecList> struct build_method_set;
 template <typename Name, template <typename...> typename List,
           POLY_METHOD_SPEC... Specs>
@@ -119,7 +132,6 @@ static_assert(
                       int(M1, int), void(M3, double), int(M2, float)>>::type>);
 /// @}
 /// @}
-
 /// This struct provides the static member function template jump(). jump() is
 /// the type erased function called by the vtable for the MethdoSpec.
 /// @{
@@ -266,7 +278,7 @@ struct POLY_EMPTY_BASE VTable : private VTableEntry<MethodSpecs>... {
 
   /// used by InterfaceVTable
   template <POLY_METHOD_SPEC Spec>
-  static method_offset_type offset(traits::Id<Spec>) noexcept {
+  static method_offset_type method_offset(traits::Id<Spec>) noexcept {
     constexpr VTable<MethodSpecs...> t;
     const std::byte *this_ =
         static_cast<const std::byte *>(static_cast<const void *>(&t));
@@ -280,84 +292,6 @@ struct POLY_EMPTY_BASE VTable : private VTableEntry<MethodSpecs>... {
 template <typename T, POLY_TYPE_LIST MethodSpecs>
 inline constexpr auto vtable_for =
     apply_t<MethodSpecs, VTable>(poly::traits::Id<T>{});
-
-/// The MethodContainer holds a pointer to the vtable, or is empty if the
-/// provided list of MethodSpecs is empty.
-/// @tparam Self the interface type that inherits from MethodContainer
-/// @tparam ListOfSpecs TypeList of MethodSpecs
-template <typename Self, POLY_TYPE_LIST ListOfSpecs,
-          POLY_TYPE_LIST CollapsedOverloads>
-class POLY_EMPTY_BASE MethodContainerImpl;
-
-template <typename Self, template <typename...> typename List,
-          typename... MethodSpecs, typename... CollapsedOverloads>
-class POLY_EMPTY_BASE
-    MethodContainerImpl<Self, List<MethodSpecs...>, List<CollapsedOverloads...>>
-    : public MethodInjector<CollapsedOverloads, Self>... {
-public:
-  using Table = VTable<MethodSpecs...>;
-
-  template <typename MethodName, typename... Args>
-  static constexpr bool nothrow_callable =
-      noexcept((*std::declval<const Table *>())(
-          MethodName{}, std::declval<void *>(), std::declval<Args>()...));
-
-  constexpr MethodContainerImpl() noexcept : vtable_(nullptr) {}
-  constexpr MethodContainerImpl(const Table *vtable) noexcept
-      : vtable_(vtable) {}
-
-  template <typename T>
-  constexpr MethodContainerImpl(traits::Id<T>) noexcept
-      : vtable_(&vtable_for<T, List<MethodSpecs...>>) {}
-
-  template <typename MethodName, typename... Args>
-  constexpr decltype(auto)
-  call(Args &&...args) noexcept(nothrow_callable<MethodName, Args...>) {
-    assert(vtable_);
-    return (*vtable_)(MethodName{}, self().data(), std::forward<Args>(args)...);
-  }
-
-  template <typename MethodName, typename... Args>
-  constexpr decltype(auto) call(Args &&...args) const
-      noexcept(nothrow_callable<MethodName, Args...>) {
-    assert(vtable_);
-    return (*vtable_)(MethodName{}, self().data(), std::forward<Args>(args)...);
-  }
-
-protected:
-  template <typename T> constexpr void set_vtable(traits::Id<T>) {
-    vtable_ = &vtable_for<T, List<MethodSpecs...>>;
-  }
-
-  constexpr void set_vtable(const Table *vtable) noexcept { vtable_ = vtable; }
-
-  constexpr const Table *vtable() const noexcept { return vtable_; }
-
-  constexpr void reset_vtable() noexcept { vtable_ = nullptr; }
-
-private:
-  constexpr Self &self() noexcept { return *static_cast<Self *>(this); }
-  constexpr const Self &self() const noexcept {
-    return *static_cast<const Self *>(this);
-  }
-  const Table *vtable_;
-};
-
-/// specialization for empty method list
-template <typename Self, template <typename...> typename List>
-class MethodContainerImpl<Self, List<>, List<>> {
-protected:
-  constexpr void set_vtable(const void *) noexcept {}
-
-  constexpr const void *vtable() const noexcept { return nullptr; }
-
-  constexpr void reset_vtable() noexcept {}
-};
-
-template <typename Self, POLY_TYPE_LIST ListOfMethodSpecs>
-using MethodContainer =
-    MethodContainerImpl<Self, ListOfMethodSpecs,
-                        typename collapse_overloads<ListOfMethodSpecs>::type>;
 
 } // namespace poly::detail
 #endif

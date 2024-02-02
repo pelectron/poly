@@ -1,3 +1,18 @@
+/**
+ *  Copyright 2024 Pelé Constam
+ *
+ *  Licensed under the Apache License, Version 2.0 (the "License");
+ *  you may not use this file except in compliance with the License.
+ *  You may obtain a copy of the License at
+ *
+ *  http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ */
 #ifndef POLY_PROPERTY_HPP
 #define POLY_PROPERTY_HPP
 #include "poly/always_false.hpp"
@@ -70,6 +85,7 @@ bool check(PropertyName, const T &t, const Type &new_value);
 /// Defines a property name Name.
 ///
 /// If property injection is disabled, this macro will simply expand to
+///
 /// ```
 /// struct Name{};
 /// ```
@@ -77,8 +93,17 @@ bool check(PropertyName, const T &t, const Type &new_value);
 /// If property injection is enabled, an inner template called injector will
 /// defined in name. The injector contains the member "Name", which delegates
 /// assignment and conversion to the Object that contains the property.
+/// Simplified, it looks like this:
 ///
-/// Additionally, if not disabled, a default property access functions are
+/// ```{cpp}
+/// struct Name{
+///   struct Injector{
+///     InjectedProperty Name;
+///   };
+/// };
+/// ```
+///
+/// Additionally, if not disabled, default property access functions are
 /// generated as follows:
 ///
 /// ```
@@ -107,14 +132,15 @@ bool check(PropertyName, const T &t, const Type &new_value);
 #if POLY_USE_PROPERTY_INJECTOR
 
 #define POLY_PROPERTY_IMPL(name)                                               \
-  struct name {                                                                \
-    template <typename Self, typename Spec>                 \
-    struct injector {                                                          \
-      POLY_NO_UNIQUE_ADDRESS poly::detail::InjectedProperty<                   \
+  struct POLY_EMPTY_BASE name {                                                \
+                                                                               \
+    template <typename Self, POLY_PROP_SPEC Spec> struct injector {            \
+      using InjectedProperty = poly::detail::InjectedProperty<                 \
           Self, injector<Self, Spec>, poly::property_name_t<Spec>,             \
           poly::value_type_t<Spec>, poly::is_const_property_v<Spec>,           \
-          poly::is_nothrow_property_v<Spec>>                                   \
-          name;                                                                \
+          poly::is_nothrow_property_v<Spec>>;                                  \
+                                                                               \
+      POLY_NO_UNIQUE_ADDRESS InjectedProperty name;                            \
     };                                                                         \
   };
 #else

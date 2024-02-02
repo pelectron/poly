@@ -1,9 +1,23 @@
+/**
+ *  Copyright 2024 Pelé Constam
+ *
+ *  Licensed under the Apache License, Version 2.0 (the "License");
+ *  you may not use this file except in compliance with the License.
+ *  You may obtain a copy of the License at
+ *
+ *  http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ */
 #ifndef POLY_STRORAGE_HPP
 #define POLY_STRORAGE_HPP
 #include "poly/fwd.hpp"
 #include "poly/traits.hpp"
 
-#include <cassert>
 #include <memory>
 
 namespace poly {
@@ -161,7 +175,7 @@ template <bool Copyable, typename T>
 inline constexpr sbo_resource_table<Copyable> sbo_table_for =
     get_sbo_resource_table<Copyable, T>();
 
-#if __cplusplus > 201703L
+#if __cplusplus >= 202002L
 template <class T, class... Args>
 constexpr T *construct_at(T *p, Args &&...args) {
   return std::construct_at(p, std::forward<Args>(args)...);
@@ -190,11 +204,7 @@ template <std::size_t I, typename... Ts> union variant_impl {
   void move(variant_impl &&, std::size_t) {}
 
   constexpr void destroy(std::size_t) {}
-#if __cplusplus > 201703L
-  constexpr ~variant_impl() noexcept {}
-#else
-  ~variant_impl() noexcept {}
-#endif
+  POLY_CONSTEXPR ~variant_impl() noexcept {}
 };
 template <std::size_t I, typename T1, typename... Ts>
 union variant_impl<I, T1, Ts...> {
@@ -258,11 +268,7 @@ union variant_impl<I, T1, Ts...> {
         rest_.destroy(idx);
     }
   }
-#if __cplusplus > 201703L
-  constexpr ~variant_impl() noexcept {}
-#else
-  ~variant_impl() noexcept {}
-#endif
+  POLY_CONSTEXPR ~variant_impl() noexcept {}
 };
 template <bool Copyable, typename... Ts> class variant_storage_impl {
   using index_type = traits::smallest_uint_to_contain<sizeof...(Ts)>;
@@ -304,17 +310,10 @@ public:
     idx = std::exchange(other.idx, sizeof...(Ts));
   }
 
-#if __cplusplus > 201703L
-  constexpr ~variant_storage_impl() {
+  POLY_CONSTEXPR ~variant_storage_impl() {
     if (idx != sizeof...(Ts))
       impl_.destroy(idx);
   }
-#else
-  ~variant_storage_impl() {
-    if (idx != sizeof...(Ts))
-      impl_.destroy(idx);
-  }
-#endif
 
   constexpr variant_storage_impl &
   operator=(variant_storage_impl &&other) noexcept(nothrow_movable and
@@ -336,7 +335,8 @@ public:
   }
 
   template <typename T, typename... Args>
-  constexpr T &emplace(Args &&...args) noexcept(std::is_constructible_v<T, Args &&...>) {
+  constexpr T &
+  emplace(Args &&...args) noexcept(std::is_constructible_v<T, Args &&...>) {
     static_assert(poly::contains_v<types, T>,
                   "T ist not a valid variant option");
     impl_.destroy(idx);
@@ -383,17 +383,10 @@ public:
     idx = std::exchange(other.idx, sizeof...(Ts));
   }
 
-#if __cplusplus > 201703L
-  constexpr ~variant_storage_impl() {
+  POLY_CONSTEXPR ~variant_storage_impl() {
     if (idx != sizeof...(Ts))
       impl_.destroy(idx);
   }
-#else
-  ~variant_storage_impl() {
-    if (idx != sizeof...(Ts))
-      impl_.destroy(idx);
-  }
-#endif
 
   constexpr variant_storage_impl &
   operator=(variant_storage_impl &&other) noexcept(nothrow_movable and
@@ -409,7 +402,8 @@ public:
   operator=(const variant_storage_impl &other) = delete;
 
   template <typename T, typename... Args>
-  constexpr T &emplace(Args &&...args) noexcept(std::is_constructible_v<T, Args &&...>) {
+  constexpr T &
+  emplace(Args &&...args) noexcept(std::is_constructible_v<T, Args &&...>) {
     static_assert(poly::contains_v<types, T>,
                   "T ist not a valid variant option");
     impl_.destroy(idx);
@@ -535,11 +529,7 @@ public:
     return this->move(std::move(other));
   }
 
-#if __cplusplus > 201703L
-  constexpr ~basic_local_storage() { reset(); }
-#else
-  ~basic_local_storage() { reset(); }
-#endif
+  POLY_CONSTEXPR ~basic_local_storage() { reset(); }
 
   /// create a T with arguments args by in place constructing the T with
   /// placment new inside the local buffer if sizeof(T) <= Size and alignof(T) =
@@ -803,11 +793,7 @@ public:
     return this->copy(other);
   }
 
-#if __cplusplus > 201703L
-  constexpr ~basic_sbo_storage() { reset(); }
-#else
-  ~basic_sbo_storage() { reset(); }
-#endif
+  POLY_CONSTEXPR ~basic_sbo_storage() { reset(); }
 
   /// create a T with arguments args by either
   /// - in place constructing the T with placment new inside the local

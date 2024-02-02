@@ -1,3 +1,18 @@
+/**
+ *  Copyright 2024 Pelé Constam
+ *
+ *  Licensed under the Apache License, Version 2.0 (the "License");
+ *  you may not use this file except in compliance with the License.
+ *  You may obtain a copy of the License at
+ *
+ *  http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ */
 #ifndef POLY_TYPE_LIST_HPP
 #define POLY_TYPE_LIST_HPP
 #include "poly/always_false.hpp"
@@ -283,19 +298,12 @@ inline constexpr bool contains_v = detail::contains<List, T>::value;
 template <typename List, template <typename...> typename T>
 using apply_t = typename detail::apply<List, T>::type;
 
-#if __cplusplus > 201703L
+#if __cplusplus >= 202002L
 /// TypeList concept
 template <typename T>
 concept TypeList = is_type_list_v<T>;
 #endif
 
 } // namespace poly
-
-#if __cplusplus > 201703L
-// enabled if c++ std > c++17
-#define POLY_TYPE_LIST ::poly::TypeList
-#else
-#define POLY_TYPE_LIST typename
-#endif
 
 #endif

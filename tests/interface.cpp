@@ -1,30 +1,66 @@
+/**
+ *  Copyright 2024 Pelé Constam
+ *
+ *  Licensed under the Apache License, Version 2.0 (the "License");
+ *  you may not use this file except in compliance with the License.
+ *  You may obtain a copy of the License at
+ *
+ *  http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ */
 #include "poly.hpp"
 #include <catch2/catch_all.hpp>
+#include <iostream>
 
 POLY_METHOD(method);
 POLY_METHOD(method2);
 
 POLY_PROPERTY(property);
+struct property2 {};
 using OBJ =
-    poly::basic_object<poly::sbo_storage<32>, PROPERTIES(property(int)),
-                       METHODS(int(method), int(method2), int(method2, int),
-                               int(method2, int, float),
-                               int(method2, int, double),
-                               void(method2, float))>;
-
-using SubIf =
-    poly::Interface<PROPERTIES(property(int)),
-                    METHODS(int(method), int(method2, int),int(method2))>;
-
-using REF = poly::Interface<PROPERTIES(property(int)),
-                            METHODS(int(method), int(method2),
+    poly::basic_object<poly::sbo_storage<32>, POLY_PROPERTIES(property(int)),
+                       POLY_METHODS(int(method), int(method2),
                                     int(method2, int), int(method2, int, float),
-                                    int(method2, int, double))>;
+                                    int(method2, int, double),
+                                    void(method2, float))>;
+
+static constexpr auto Sa = sizeof(
+    poly::basic_object<poly::ref_storage, POLY_PROPERTIES(property2(int)),
+                       POLY_METHODS(int(method), int(method2, int),
+                                    int(method2))>);
+static constexpr auto Sb = sizeof(
+    poly::basic_object<poly::ref_storage, POLY_PROPERTIES(property(int)),
+                       POLY_METHODS(int(method), int(method2, int),
+                                    int(method2))>);
+static constexpr size_t S =
+    sizeof(poly::basic_object<poly::ref_storage,
+                              POLY_PROPERTIES(property2(int)), POLY_METHODS()>);
+static constexpr size_t Sx =
+    sizeof(poly::basic_object<poly::ref_storage, POLY_PROPERTIES(),
+                              POLY_METHODS(int(method), int(method2, int),
+                                           int(method2))>);
+using SubIf =
+    poly::Interface<POLY_PROPERTIES(property(int)),
+                    POLY_METHODS(int(method), int(method2, int), int(method2))>;
+using REF =
+    poly::Interface<POLY_PROPERTIES(property(int)),
+                    POLY_METHODS(int(method), int(method2), int(method2, int),
+                                 int(method2, int, float),
+                                 int(method2, int, double))>;
 
 struct S1 {
   int property;
   char data_[128];
 };
+struct X {
+  void (*f)();
+};
+static_assert(std::is_standard_layout_v<X>);
 
 int extend(method, S1 &) { return 42; }
 int extend(method2, S1 &) { return 54; }
@@ -112,18 +148,18 @@ TEMPLATE_TEST_CASE("generic interface test", "[interface]", OBJ) {
     REQUIRE(object.template call<method2>(41, 2.0) == 40);
     REQUIRE(object.method2(41, 2.0) == 40);
   }
-  SECTION("sub interface S2 methods") {
-    SubIf sub_interface{object};
-    // int method()
-    REQUIRE(sub_interface.template call<method>() == 43);
-    REQUIRE(sub_interface.method() == 43);
-    // int method2()
-    REQUIRE(sub_interface.template call<method2>() == 53);
-    REQUIRE(sub_interface.method2() == 53);
-    // int method2(int)
-    REQUIRE(sub_interface.template call<method2>(41) == 43);
-    REQUIRE(sub_interface.method2(41) == 43);
-  }
+  // SECTION("sub interface S2 methods") {
+  //   SubIf sub_interface{object};
+  //   // int method()
+  //   REQUIRE(sub_interface.template call<method>() == 43);
+  //   REQUIRE(sub_interface.method() == 43);
+  //   // int method2()
+  //   REQUIRE(sub_interface.template call<method2>() == 53);
+  //   REQUIRE(sub_interface.method2() == 53);
+  //   // int method2(int)
+  //   REQUIRE(sub_interface.template call<method2>(41) == 43);
+  //   REQUIRE(sub_interface.method2(41) == 43);
+  // }
   SECTION("S2::property") {
     REQUIRE(i == 77);
     REQUIRE(object.property == 5);

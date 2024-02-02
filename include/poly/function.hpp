@@ -1,3 +1,18 @@
+/**
+ *  Copyright 2024 Pelé Constam
+ *
+ *  Licensed under the Apache License, Version 2.0 (the "License");
+ *  you may not use this file except in compliance with the License.
+ *  You may obtain a copy of the License at
+ *
+ *  http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ */
 #ifndef POLY_FUNCTION_HPP
 #define POLY_FUNCTION_HPP
 #include "poly/storage.hpp"
@@ -179,7 +194,7 @@ public:
   }
 
   template <typename F> void bind(F &&f) noexcept(nothrow_emplacable<F>) {
-    static_assert(poly::is_invocable_v<Sig, std::decay_t<F>>,
+    static_assert(poly::traits::is_invocable_v<Sig, std::decay_t<F>>,
                   "f is not callable with the signature defined");
     storage_.template emplace<std::decay_t<F>>(std::forward<F>(f));
     invoke_ = detail::invoke_ptr<Sig>::template value<std::decay_t<F>>;
@@ -228,7 +243,7 @@ public:
   }
 
   template <typename F> void bind(F &&f) {
-    static_assert(is_invocable_v<Sig, std::decay_t<F>>,
+    static_assert(traits::is_invocable_v<Sig, std::decay_t<F>>,
                   "f is not callable with the signature defined");
     derived().template emplace<std::decay_t<F>>(std::forward<F>(f));
     invoke_ = detail::invoke_ptr<Sig>::template value<std::decay_t<F>>;
@@ -317,7 +332,7 @@ public:
             typename = std::enable_if_t<
                 not detail::is_poly_function<std::decay_t<F>>::value>>
   constexpr any_function(F &&f) {
-    static_assert((is_invocable_v<Sigs, std::decay_t<F>> or ...),
+    static_assert((traits::is_invocable_v<Sigs, std::decay_t<F>> or ...),
                   "f is not callable with any of the signatures defined");
     this->bind(std::forward<F>(f));
   }
