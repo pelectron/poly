@@ -17,7 +17,7 @@ macros. Defining method and property names with these macros will enable the
 usage of said method or property directly by name in a `poly::basic_object`
 featuring it.
 
-```{cpp}
+```cpp
 #include "poly.hpp"
 // defines the method name my_method
 POLY_METHOD(my_method)
@@ -76,7 +76,7 @@ MethodSpec.
 
 #### Example
 
-```{cpp}
+```cpp
 #include "poly.hpp"
 // the name
 POLY_METHOD(calculate)
@@ -117,7 +117,7 @@ valid PropertySpec. When compiling with C++20 or above, poly also provides the
 concept `poly::PropertySpecification`, which can be used to check if a type is
 a PropertySpec.
 
-```{cpp}
+```cpp
 #include "poly.hpp"
 #include <chrono>
 // the name
@@ -158,7 +158,7 @@ poly::Storage can be used.
 
 A minimal class satisfying the Storage requirements is depicted below
 
-```{cpp}
+```cpp
 struct minimal_storage{
   minimal_storage();
   minimal_storage(minimal_storage&&);
@@ -214,7 +214,7 @@ and`MethodSpecs` list.
 
 `poly::basic_object` is defined in the following way (with C++20 concept notation):
 
-```{cpp}
+```cpp
 template <poly::Storage StorageType, 
           poly::PropertySpecList PropertySpecs,
           poly::MethodSpecList MethodSpecs>
@@ -338,7 +338,7 @@ will also be noexcept.
 
 ##### Example
 
-```{cpp}
+```cpp
 #include "poly.hpp"
 POlY_METHOD(m1)
 POLY_METHOD(m2)
@@ -393,7 +393,7 @@ Template Parameters | Description |
 
 ##### Example
 
-```{cpp}
+```cpp
 #include "poly.hpp"
 
 POLY_PROPERTY(p1)
@@ -447,7 +447,7 @@ function with that name.
 `method2` cannot be injected by name, but can still used with
 [`call`](<#ret-basic_object%3A%3Acall%3Cname%3E(args%26%26...args)-noexcept(%2F*as-specified*%2F)>).
 
-```{cpp}
+```cpp
 #include "poly.hpp"
 
 POLY_METHOD(my_method1)
@@ -481,7 +481,7 @@ member variable with that name.
 and
 [`get`](<#value_type_for%3Cname%3E-basic_object%3A%3Aget%3Cname%3E()-const-noexcept(%2F*as-specified*%2F)>).
 
-```{cpp}
+```cpp
 #include "poly.hpp"
 
 POLY_PROPERTY(property1)
@@ -506,7 +506,7 @@ void use_object(Object obj){
 
 Everything together, a virtual interface which used to look like this:
 
-```{cpp}
+```cpp
 class DeviceBase{
 public:
     virtual void write(const std::string&)=0;
@@ -521,7 +521,7 @@ DeviceBase* create_device(ProtocolAgnosticAddress a);
 
 is transformed into
 
-```{cpp}
+```cpp
 #include "poly.hpp"
 
 POLY_METHOD(write)
