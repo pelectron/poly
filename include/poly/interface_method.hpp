@@ -22,60 +22,61 @@ namespace poly::detail {
 /// an entry in the InterfaceTable. It stores the offset of the corresponding
 /// VTableEntry.
 /// @{
-template <POLY_METHOD_SPEC Spec> struct InterfaceVTableEntry;
+template<POLY_METHOD_SPEC Spec>
+struct InterfaceVTableEntry;
 
-template <typename Ret, typename Method, typename... Args>
+template<typename Ret, typename Method, typename... Args>
 struct InterfaceVTableEntry<Ret(Method, Args...)> {
   using signature_type = Ret(Method, Args...);
 
-  Ret operator()(Method, const void *table, void *obj, Args... args) const {
+  Ret operator()(Method, const void* table, void* obj, Args... args) const {
     assert(table);
     assert(obj);
-    const auto *entry = reinterpret_cast<const VTableEntry<signature_type> *>(
-        static_cast<const std::byte *>(table) + offset);
+    const auto* entry = reinterpret_cast<const VTableEntry<signature_type>*>(
+        static_cast<const std::byte*>(table) + offset);
     return (*entry)(Method{}, obj, std::forward<Args>(args)...);
   }
 
   method_offset_type offset{0};
 };
-template <typename Ret, typename Method, typename... Args>
+template<typename Ret, typename Method, typename... Args>
 struct InterfaceVTableEntry<Ret(Method, Args...) const> {
   using signature_type = Ret(Method, Args...);
 
-  Ret operator()(Method, const void *table, const void *obj,
+  Ret operator()(Method, const void* table, const void* obj,
                  Args... args) const {
     assert(table);
     assert(obj);
-    const auto *entry = reinterpret_cast<const VTableEntry<signature_type> *>(
-        static_cast<const std::byte *>(table) + offset);
+    const auto* entry = reinterpret_cast<const VTableEntry<signature_type>*>(
+        static_cast<const std::byte*>(table) + offset);
     return (*entry)(Method{}, obj, std::forward<Args>(args)...);
   }
 
   method_offset_type offset{0};
 };
-template <typename Ret, typename Method, typename... Args>
+template<typename Ret, typename Method, typename... Args>
 struct InterfaceVTableEntry<Ret(Method, Args...) noexcept> {
   using signature_type = Ret(Method, Args...);
 
-  Ret operator()(Method, const void *table, void *obj, Args... args) const {
+  Ret operator()(Method, const void* table, void* obj, Args... args) const {
     assert(table);
     assert(obj);
-    const auto *entry = reinterpret_cast<const VTableEntry<signature_type> *>(
-        static_cast<const std::byte *>(table) + offset);
+    const auto* entry = reinterpret_cast<const VTableEntry<signature_type>*>(
+        static_cast<const std::byte*>(table) + offset);
     return (*entry)(Method{}, obj, std::forward<Args>(args)...);
   }
 
   method_offset_type offset{0};
 };
-template <typename Ret, typename Method, typename... Args>
+template<typename Ret, typename Method, typename... Args>
 struct InterfaceVTableEntry<Ret(Method, Args...) const noexcept> {
   using signature_type = Ret(Method, Args...);
-  Ret operator()(Method, const void *table, const void *obj,
+  Ret operator()(Method, const void* table, const void* obj,
                  Args... args) const {
     assert(table);
     assert(obj);
-    const auto *entry = reinterpret_cast<const VTableEntry<signature_type> *>(
-        static_cast<const std::byte *>(table) + offset);
+    const auto* entry = reinterpret_cast<const VTableEntry<signature_type>*>(
+        static_cast<const std::byte*>(table) + offset);
     return (*entry)(Method{}, obj, std::forward<Args>(args)...);
   }
 

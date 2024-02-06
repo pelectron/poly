@@ -29,21 +29,6 @@ using OBJ =
                                     int(method2, int, double),
                                     void(method2, float))>;
 
-static constexpr auto Sa = sizeof(
-    poly::basic_object<poly::ref_storage, POLY_PROPERTIES(property2(int)),
-                       POLY_METHODS(int(method), int(method2, int),
-                                    int(method2))>);
-static constexpr auto Sb = sizeof(
-    poly::basic_object<poly::ref_storage, POLY_PROPERTIES(property(int)),
-                       POLY_METHODS(int(method), int(method2, int),
-                                    int(method2))>);
-static constexpr size_t S =
-    sizeof(poly::basic_object<poly::ref_storage,
-                              POLY_PROPERTIES(property2(int)), POLY_METHODS()>);
-static constexpr size_t Sx =
-    sizeof(poly::basic_object<poly::ref_storage, POLY_PROPERTIES(),
-                              POLY_METHODS(int(method), int(method2, int),
-                                           int(method2))>);
 using SubIf =
     poly::Interface<POLY_PROPERTIES(property(int)),
                     POLY_METHODS(int(method), int(method2, int), int(method2))>;
@@ -60,32 +45,31 @@ struct S1 {
 struct X {
   void (*f)();
 };
-static_assert(std::is_standard_layout_v<X>);
 
-int extend(method, S1 &) { return 42; }
-int extend(method2, S1 &) { return 54; }
-int extend(method2, S1 &, int i) { return i + 1; }
-void extend(method2, S1 &, float f) {}
-int extend(method2, S1 &, int i, float) { return i - 1; }
-int extend(method2, S1 &, int i, double) { return i - 2; }
+int extend(method, S1&) { return 42; }
+int extend(method2, S1&) { return 54; }
+int extend(method2, S1&, int i) { return i + 1; }
+void extend(method2, S1&, float ) {}
+int extend(method2, S1&, int i, float) { return i - 1; }
+int extend(method2, S1&, int i, double) { return i - 2; }
 
 struct S2 {
-  int *p;
+  int* p;
 };
-int extend(method, S2 &) { return 43; }
-int extend(method2, S2 &) { return 53; }
-int extend(method2, S2 &, int i) { return i + 2; }
-void extend(method2, S2 &, float f) { return; }
-int extend(method2, S2 &, int i, float) { return i; }
-int extend(method2, S2 &, int i, double) { return i - 1; }
+int extend(method, S2&) { return 43; }
+int extend(method2, S2&) { return 53; }
+int extend(method2, S2&, int i) { return i + 2; }
+void extend(method2, S2&, float ) { return; }
+int extend(method2, S2&, int i, float) { return i; }
+int extend(method2, S2&, int i, double) { return i - 1; }
 
-int get(property, const S2 &) { return 5; }
+int get(property, const S2&) { return 5; }
 
-void set(property, S2 &s, const int &i) { *(s.p) = i; }
+void set(property, S2& s, const int& i) { *(s.p) = i; }
 
 TEMPLATE_TEST_CASE("generic interface test", "[interface]", OBJ) {
   using If = TestType;
-  S1 s1{79};
+  S1 s1{79,{}};
   int i = {77};
   S2 s2{&i};
   If object(s1);

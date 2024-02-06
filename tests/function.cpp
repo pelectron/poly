@@ -16,14 +16,16 @@
 #include "poly/function.hpp"
 #include "catch2/catch_all.hpp"
 #include "poly/storage.hpp"
-using Fn = poly::function<int(int) const,poly::local_storage<32, 8>>;
+using Fn = poly::function<int(int) const, poly::local_storage<32, 8>>;
 // using Fn2 = poly::any_function<poly::local_storage<32, 8>, int(int) const,
 //                                int(float), float(double)>;
 
-template <typename... Ts> struct overload : public Ts... {
+template<typename... Ts>
+struct overload : public Ts... {
   using Ts::operator()...;
 };
-template <typename... Ts> overload(Ts...) -> overload<std::decay_t<Ts>...>;
+template<typename... Ts>
+overload(Ts...) -> overload<std::decay_t<Ts>...>;
 
 TEST_CASE("function") {
   Fn f{[](int i) -> int { return i - 1; }};

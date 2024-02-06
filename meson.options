@@ -22,6 +22,10 @@ option( 'default_extend',
         type: 'boolean', 
         value: true, 
         description: 'Enable the default implementation of extend().')
+option( 'header_only',
+        type: 'boolean',
+        value: true,
+        description: 'true: use poly as header only library. false: compile poly as a library.')
 option( 'tests',
         type: 'boolean',
         value: true,

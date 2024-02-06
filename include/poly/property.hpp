@@ -24,12 +24,13 @@ namespace poly {
 /// @ref PropertySpecs "PropertySpecs" for an arbitrary type T are implemented
 /// by defining the functions set(), get(), and optionally check().
 ///
-/// These functions must be locatable through "argument dependent lookup" (ADL),
-/// that is, they should be defined in the same namespace as the property name,
-/// or the same namespace as the T to be extended with the property. In general,
-/// if the T is a type owned by the user, the functions should be in the same
-/// namespace as T. For third party types, such as standard library containers,
-/// they should be defined in the same namespace as the property name.
+/// These functions must be locatable through "argument dependent lookup"
+/// (ADL), that is, they should be defined in the same namespace as the
+/// property name, or the same namespace as the T to be extended with the
+/// property. In general, if the T is a type owned by the user, the functions
+/// should be in the same namespace as T. For third party types, such as
+/// standard library containers, they should be defined in the same namespace
+/// as the property name.
 ///
 /// To enable name injection, the @ref POLY_PROPERTY macro has to be used to
 /// define the property name.
@@ -45,9 +46,9 @@ namespace poly {
 /// @tparam Type the value type of the Property
 /// @tparam PropertyName the name of the Property
 /// @tparam T the of the objec the property belongs to
-template <typename Type, typename PropertyName, typename T,
-          typename = std::enable_if_t<detail::always_false<T>>>
-Type get(PropertyName, const T &t);
+template<typename Type, typename PropertyName, typename T,
+         typename = std::enable_if_t<detail::always_false<T>>>
+Type get(PropertyName, const T& t);
 
 /// setter for the PropertySpec
 /// 'PropertyName(Type)[noexcept]'.
@@ -58,28 +59,28 @@ Type get(PropertyName, const T &t);
 /// @tparam Type the value type of the Property
 /// @tparam PropertyName the name of the Property
 /// @tparam T the of the objec the property belongs to
-template <typename PropertyName, typename T, typename Type,
-          typename = std::enable_if_t<detail::always_false<T>>>
-void set(PropertyName, T &t, const Type &value);
+template<typename PropertyName, typename T, typename Type,
+         typename = std::enable_if_t<detail::always_false<T>>>
+void set(PropertyName, T& t, const Type& value);
 
 /// optional checker for the PropertySpec
 /// '[const]PropertyName(Type)[noexcept]'.
 ///
-/// This function can be defined for enable validation before setting properties
-/// on a T. If the function returns false, the value is not set, i.e
-/// set(PropertyName,T&,const Type&) is not called. Calling
+/// This function can be defined for enable validation before setting
+/// properties on a T. If the function returns false, the value is not set,
+/// i.e set(PropertyName,T&,const Type&) is not called. Calling
 /// Object::set<PropertyName>(value) returns the result of calling check().
 ///
 /// @note when using the assignment operator on injected properties,instead of
-/// Object::set<PropertyName>(), the value is set as described above, but return
-/// value of check() cannot be retrieved by the caller.
+/// Object::set<PropertyName>(), the value is set as described above, but
+/// return value of check() cannot be retrieved by the caller.
 ///
 /// @tparam Type the value type of the Property
 /// @tparam PropertyName the name of the Property
 /// @tparam T the of the objec the property belongs to
-template <typename PropertyName, typename T, typename Type,
-          typename = std::enable_if_t<detail::always_false<T>>>
-bool check(PropertyName, const T &t, const Type &new_value);
+template<typename PropertyName, typename T, typename Type,
+         typename = std::enable_if_t<detail::always_false<T>>>
+bool check(PropertyName, const T& t, const Type& new_value);
 
 /// @def POLY_PROPERTY(Name)
 /// Defines a property name Name.
@@ -123,51 +124,52 @@ bool check(PropertyName, const T &t, const Type &new_value);
 
 #if POLY_USE_MACROS
 
-#define POLY_PROPERTIES(...) poly::type_list<__VA_ARGS__>
+#  define POLY_PROPERTIES(...) poly::type_list<__VA_ARGS__>
 
-#define POLY_PROPERTY(Name)                                                    \
-  POLY_PROPERTY_IMPL(Name)                                                     \
-  POLY_ACCESS_IMPL(Name)
+#  define POLY_PROPERTY(Name) \
+    POLY_PROPERTY_IMPL(Name)  \
+    POLY_ACCESS_IMPL(Name)
 
-#if POLY_USE_PROPERTY_INJECTOR
+#  if POLY_USE_PROPERTY_INJECTOR
 
-#define POLY_PROPERTY_IMPL(name)                                               \
-  struct POLY_EMPTY_BASE name {                                                \
-                                                                               \
-    template <typename Self, POLY_PROP_SPEC Spec> struct injector {            \
-      using InjectedProperty = poly::detail::InjectedProperty<                 \
-          Self, injector<Self, Spec>, poly::property_name_t<Spec>,             \
-          poly::value_type_t<Spec>, poly::is_const_property_v<Spec>,           \
-          poly::is_nothrow_property_v<Spec>>;                                  \
-                                                                               \
-      POLY_NO_UNIQUE_ADDRESS InjectedProperty name;                            \
-    };                                                                         \
-  };
-#else
-#define POLY_PROPERTY_IMPL(name)                                               \
-  struct name {};
-#endif
+#    define POLY_PROPERTY_IMPL(name)                                     \
+      struct POLY_EMPTY_BASE name {                                      \
+                                                                         \
+        template<typename Self, POLY_PROP_SPEC Spec>                     \
+        struct injector {                                                \
+          using InjectedProperty = poly::detail::InjectedProperty<       \
+              Self, injector<Self, Spec>, poly::property_name_t<Spec>,   \
+              poly::value_type_t<Spec>, poly::is_const_property_v<Spec>, \
+              poly::is_nothrow_property_v<Spec>>;                        \
+                                                                         \
+          POLY_NO_UNIQUE_ADDRESS InjectedProperty name;                  \
+        };                                                               \
+      };
+#  else
+#    define POLY_PROPERTY_IMPL(name) \
+      struct name {};
+#  endif
 
-#if POLY_USE_DEFAULT_PROPERTY_ACCESS
+#  if POLY_USE_DEFAULT_PROPERTY_ACCESS
 
-#define POLY_ACCESS_IMPL(name)                                                 \
-                                                                               \
-  template <typename T>                                                        \
-  auto get(name, const T &t) noexcept(                                         \
-      std::is_nothrow_copy_constructible_v<                                    \
-          decltype(std::declval<const T &>().name)>) {                         \
-    return t.name;                                                             \
-  }                                                                            \
-                                                                               \
-  template <typename T, typename Type>                                         \
-  void set(name, T &t, const Type &value) noexcept(                            \
-      std::is_nothrow_assignable_v<decltype(std::declval<T &>().name),         \
-                                   const Type &>) {                            \
-    t.name = value;                                                            \
-  }
-#else
-#define POLY_ACCESS_IMPL(name)
-#endif
+#    define POLY_ACCESS_IMPL(name)                                        \
+                                                                          \
+      template<typename T>                                                \
+      auto get(name, const T& t) noexcept(                                \
+          std::is_nothrow_copy_constructible_v<                           \
+              decltype(std::declval<const T&>().name)>) {                 \
+        return t.name;                                                    \
+      }                                                                   \
+                                                                          \
+      template<typename T, typename Type>                                 \
+      void set(name, T& t, const Type& value) noexcept(                   \
+          std::is_nothrow_assignable_v<decltype(std::declval<T&>().name), \
+                                       const Type&>) {                    \
+        t.name = value;                                                   \
+      }
+#  else
+#    define POLY_ACCESS_IMPL(name)
+#  endif
 #endif
 
 #endif

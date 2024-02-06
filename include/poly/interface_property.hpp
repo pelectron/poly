@@ -24,79 +24,80 @@ namespace poly::detail {
 /// @addtogroup ptable
 /// @{
 
-/// An individual entry in the interface property table. It stores to offset of
-/// the corespond PTableEntry in the original object_table.
+/// An individual entry in the interface property table. It stores to offset
+/// of the corespond PTableEntry in the original object_table.
 /// @{
-template <POLY_PROP_SPEC PropertySpec> struct InterfacePTableEntry;
-template <typename Name, typename Type>
+template<POLY_PROP_SPEC PropertySpec>
+struct InterfacePTableEntry;
+template<typename Name, typename Type>
 struct InterfacePTableEntry<const Name(Type)> {
-  Type get(Name, const void *table, const void *t) const {
+  Type get(Name, const void* table, const void* t) const {
     assert(table);
     assert(t);
-    const auto *entry =
-        static_cast<const PTable<const Name(Type)> *>(static_cast<const void *>(
-            static_cast<const std::byte *>(table) + offset));
+    const auto* entry =
+        static_cast<const PTable<const Name(Type)>*>(static_cast<const void*>(
+            static_cast<const std::byte*>(table) + offset));
     return entry->get(Name{}, t);
   }
 
   property_offset_type offset{0};
 };
 
-template <typename Name, typename Type>
+template<typename Name, typename Type>
 struct InterfacePTableEntry<const Name(Type) noexcept> {
 
-  Type get(Name, const void *table, const void *t) const noexcept {
+  Type get(Name, const void* table, const void* t) const noexcept {
     assert(table);
     assert(t);
-    const auto *entry = static_cast<const PTable<const Name(Type) noexcept> *>(
-        static_cast<const void *>(static_cast<const std::byte *>(table) +
-                                  offset));
+    const auto* entry = static_cast<const PTable<const Name(Type) noexcept>*>(
+        static_cast<const void*>(static_cast<const std::byte*>(table) +
+                                 offset));
     return entry->get(Name{}, t);
   }
 
   property_offset_type offset{0};
 };
 
-template <typename Name, typename Type>
+template<typename Name, typename Type>
 struct InterfacePTableEntry<Name(Type)> {
-  bool set(Name, const void *table, void *t, const Type &value) const {
+  bool set(Name, const void* table, void* t, const Type& value) const {
     assert(table);
     assert(t);
-    const auto *entry =
-        static_cast<const PTable<Name(Type)> *>(static_cast<const void *>(
-            static_cast<const std::byte *>(table) + offset));
+    const auto* entry =
+        static_cast<const PTable<Name(Type)>*>(static_cast<const void*>(
+            static_cast<const std::byte*>(table) + offset));
     return entry->set(Name{}, t, value);
   }
 
-  Type get(Name, const void *table, const void *t) const {
+  Type get(Name, const void* table, const void* t) const {
     assert(table);
     assert(t);
-    const auto *entry =
-        static_cast<const PTable<Name(Type)> *>(static_cast<const void *>(
-            static_cast<const std::byte *>(table) + offset));
+    const auto* entry =
+        static_cast<const PTable<Name(Type)>*>(static_cast<const void*>(
+            static_cast<const std::byte*>(table) + offset));
     return entry->get(Name{}, t);
   }
 
   property_offset_type offset{0};
 };
 
-template <typename Name, typename Type>
+template<typename Name, typename Type>
 struct InterfacePTableEntry<Name(Type) noexcept> {
-  bool set(Name, const void *table, void *t, const Type &value) const noexcept {
+  bool set(Name, const void* table, void* t, const Type& value) const noexcept {
     assert(table);
     assert(t);
-    const auto *entry = static_cast<const PTable<Name(Type) noexcept> *>(
-        static_cast<const void *>(static_cast<const std::byte *>(table) +
-                                  offset));
+    const auto* entry = static_cast<const PTable<Name(Type) noexcept>*>(
+        static_cast<const void*>(static_cast<const std::byte*>(table) +
+                                 offset));
     return entry->set(Name{}, t, value);
   }
 
-  Type get(Name, const void *table, const void *t) const {
+  Type get(Name, const void* table, const void* t) const {
     assert(table);
     assert(t);
-    const auto *entry = static_cast<const PTable<Name(Type) noexcept> *>(
-        static_cast<const void *>(static_cast<const std::byte *>(table) +
-                                  offset));
+    const auto* entry = static_cast<const PTable<Name(Type) noexcept>*>(
+        static_cast<const void*>(static_cast<const std::byte*>(table) +
+                                 offset));
     return entry->get(Name{}, t);
   }
 

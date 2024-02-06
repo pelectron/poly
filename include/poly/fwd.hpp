@@ -23,18 +23,19 @@ namespace poly {
 
 class ref_storage;
 
-template <std::size_t Size, std::size_t Alignment = alignof(std::max_align_t)>
+template<std::size_t Size, std::size_t Alignment = alignof(std::max_align_t)>
 class local_storage;
 
-template <std::size_t Size, std::size_t Alignment = alignof(std::max_align_t)>
+template<std::size_t Size, std::size_t Alignment = alignof(std::max_align_t)>
 class move_only_local_storage;
 
-template <std::size_t Size, std::size_t Alignment = alignof(std::max_align_t)>
+template<std::size_t Size, std::size_t Alignment = alignof(std::max_align_t)>
 class sbo_storage;
 
-template <std::size_t Size, std::size_t Alignment = alignof(std::max_align_t)>
+template<std::size_t Size, std::size_t Alignment = alignof(std::max_align_t)>
 class move_only_sbo_storage;
 
-template <typename... Ts> class variant_storage;
+template<typename... Ts>
+class variant_storage;
 } // namespace poly
 #endif

@@ -69,22 +69,30 @@ int main() {
                                       poly::type_list<>>)
             << std::endl;
 
-  std::cout
-      << "9 named properties: "
-      << sizeof(poly::Reference<
-                poly::type_list<property1(int), property2(int), property3(int),
-                                property4(int), property5(int), property6(int),
-                                property7(int), property8(int), property9(int)>,
-                poly::type_list<>>)
-      << std::endl;
+  std::cout << "9 named properties: "
+            << sizeof(poly::Reference<poly::type_list<property1(int),
+                                                      property2(int),
+                                                      property3(int),
+                                                      property4(int),
+                                                      property5(int),
+                                                      property6(int),
+                                                      property7(int),
+                                                      property8(int),
+                                                      property9(int)>,
+                                      poly::type_list<>>)
+            << std::endl;
 
   std::cout << "9 unnamed properties: "
-            << sizeof(poly::Reference<
-                      poly::type_list<
-                          property11(int), property12(int), property13(int),
-                          property14(int), property15(int), property16(int),
-                          property17(int), property18(int), property19(int)>,
-                      poly::type_list<>>)
+            << sizeof(poly::Reference<poly::type_list<property11(int),
+                                                      property12(int),
+                                                      property13(int),
+                                                      property14(int),
+                                                      property15(int),
+                                                      property16(int),
+                                                      property17(int),
+                                                      property18(int),
+                                                      property19(int)>,
+                                      poly::type_list<>>)
             << std::endl;
 
   std::cout
@@ -96,21 +104,30 @@ int main() {
       << "1 unnamed method: "
       << sizeof(poly::Reference<poly::type_list<>, poly::type_list<void(m1)>>)
       << std::endl;
-  std::cout
-      << "9 named methods: "
-      << sizeof(poly::Reference<
-                poly::type_list<>,
-                poly::type_list<void(method), void(method2), void(method3),
-                                void(method4), void(method5), void(method6),
-                                void(method7), void(method8), void(method9)>>)
-      << std::endl;
-  std::cout
-      << "9 unnamed methods: "
-      << sizeof(poly::Reference<poly::type_list<>,
-                                poly::type_list<void(m1), void(m2), void(m3),
-                                                void(m4), void(m5), void(m6),
-                                                void(m7), void(m8), void(m9)>>)
-      << std::endl;
+  std::cout << "9 named methods: "
+            << sizeof(poly::Reference<poly::type_list<>,
+                                      poly::type_list<void(method),
+                                                      void(method2),
+                                                      void(method3),
+                                                      void(method4),
+                                                      void(method5),
+                                                      void(method6),
+                                                      void(method7),
+                                                      void(method8),
+                                                      void(method9)>>)
+            << std::endl;
+  std::cout << "9 unnamed methods: "
+            << sizeof(poly::Reference<poly::type_list<>,
+                                      poly::type_list<void(m1),
+                                                      void(m2),
+                                                      void(m3),
+                                                      void(m4),
+                                                      void(m5),
+                                                      void(m6),
+                                                      void(m7),
+                                                      void(m8),
+                                                      void(m9)>>)
+            << std::endl;
 
   std::cout << "1 named method, 1 named property: "
             << sizeof(poly::Reference<poly::type_list<property1(int)>,
@@ -129,46 +146,85 @@ int main() {
                                       poly::type_list<void(m1)>>)
             << std::endl;
 
-  std::cout
-      << "9 named methods, 9 named properties: "
-      << sizeof(poly::Reference<
-                poly::type_list<property1(int), property2(int), property3(int),
-                                property4(int), property5(int), property6(int),
-                                property7(int), property8(int), property9(int)>,
-                poly::type_list<void(method), void(method2), void(method3),
-                                void(method4), void(method5), void(method6),
-                                void(method7), void(method8), void(method9)>>)
-      << std::endl;
-  std::cout
-      << "9 unnamed methods, 9 named properties: "
-      << sizeof(poly::Reference<
-                poly::type_list<property1(int), property2(int), property3(int),
-                                property4(int), property5(int), property6(int),
-                                property7(int), property8(int), property9(int)>,
-                poly::type_list<void(m1), void(m2), void(m3), void(m4),
-                                void(m5), void(m6), void(m7), void(m8),
-                                void(m9)>>)
-      << std::endl;
-  std::cout
-      << "9 named methods, 9 unnamed properties: "
-      << sizeof(poly::Reference<
-                poly::type_list<
-                    property11(int), property12(int), property13(int),
-                    property14(int), property15(int), property16(int),
-                    property17(int), property18(int), property19(int)>,
-                poly::type_list<void(method), void(method2), void(method3),
-                                void(method4), void(method5), void(method6),
-                                void(method7), void(method8), void(method9)>>)
-      << std::endl;
+  std::cout << "9 named methods, 9 named properties: "
+            << sizeof(poly::Reference<poly::type_list<property1(int),
+                                                      property2(int),
+                                                      property3(int),
+                                                      property4(int),
+                                                      property5(int),
+                                                      property6(int),
+                                                      property7(int),
+                                                      property8(int),
+                                                      property9(int)>,
+                                      poly::type_list<void(method),
+                                                      void(method2),
+                                                      void(method3),
+                                                      void(method4),
+                                                      void(method5),
+                                                      void(method6),
+                                                      void(method7),
+                                                      void(method8),
+                                                      void(method9)>>)
+            << std::endl;
+  std::cout << "9 unnamed methods, 9 named properties: "
+            << sizeof(poly::Reference<poly::type_list<property1(int),
+                                                      property2(int),
+                                                      property3(int),
+                                                      property4(int),
+                                                      property5(int),
+                                                      property6(int),
+                                                      property7(int),
+                                                      property8(int),
+                                                      property9(int)>,
+                                      poly::type_list<void(m1),
+                                                      void(m2),
+                                                      void(m3),
+                                                      void(m4),
+                                                      void(m5),
+                                                      void(m6),
+                                                      void(m7),
+                                                      void(m8),
+                                                      void(m9)>>)
+            << std::endl;
+  std::cout << "9 named methods, 9 unnamed properties: "
+            << sizeof(poly::Reference<poly::type_list<property11(int),
+                                                      property12(int),
+                                                      property13(int),
+                                                      property14(int),
+                                                      property15(int),
+                                                      property16(int),
+                                                      property17(int),
+                                                      property18(int),
+                                                      property19(int)>,
+                                      poly::type_list<void(method),
+                                                      void(method2),
+                                                      void(method3),
+                                                      void(method4),
+                                                      void(method5),
+                                                      void(method6),
+                                                      void(method7),
+                                                      void(method8),
+                                                      void(method9)>>)
+            << std::endl;
   std::cout << "9 unnamed methods, 9 unnamed properties: "
-            << sizeof(poly::Reference<
-                      poly::type_list<
-                          property11(int), property12(int), property13(int),
-                          property14(int), property15(int), property16(int),
-                          property17(int), property18(int), property19(int)>,
-                      poly::type_list<void(m1), void(m2), void(m3), void(m4),
-                                      void(m5), void(m6), void(m7), void(m8),
-                                      void(m9)>>)
+            << sizeof(poly::Reference<poly::type_list<property11(int),
+                                                      property12(int),
+                                                      property13(int),
+                                                      property14(int),
+                                                      property15(int),
+                                                      property16(int),
+                                                      property17(int),
+                                                      property18(int),
+                                                      property19(int)>,
+                                      poly::type_list<void(m1),
+                                                      void(m2),
+                                                      void(m3),
+                                                      void(m4),
+                                                      void(m5),
+                                                      void(m6),
+                                                      void(m7),
+                                                      void(m8),
+                                                      void(m9)>>)
             << std::endl;
   std::cout << "different poly::basic_interface sizes in bytes" << std::endl;
 
@@ -186,22 +242,30 @@ int main() {
                                       poly::type_list<>>)
             << std::endl;
 
-  std::cout
-      << "9 named properties: "
-      << sizeof(poly::Interface<
-                poly::type_list<property1(int), property2(int), property3(int),
-                                property4(int), property5(int), property6(int),
-                                property7(int), property8(int), property9(int)>,
-                poly::type_list<>>)
-      << std::endl;
+  std::cout << "9 named properties: "
+            << sizeof(poly::Interface<poly::type_list<property1(int),
+                                                      property2(int),
+                                                      property3(int),
+                                                      property4(int),
+                                                      property5(int),
+                                                      property6(int),
+                                                      property7(int),
+                                                      property8(int),
+                                                      property9(int)>,
+                                      poly::type_list<>>)
+            << std::endl;
 
   std::cout << "9 unnamed properties: "
-            << sizeof(poly::Interface<
-                      poly::type_list<
-                          property11(int), property12(int), property13(int),
-                          property14(int), property15(int), property16(int),
-                          property17(int), property18(int), property19(int)>,
-                      poly::type_list<>>)
+            << sizeof(poly::Interface<poly::type_list<property11(int),
+                                                      property12(int),
+                                                      property13(int),
+                                                      property14(int),
+                                                      property15(int),
+                                                      property16(int),
+                                                      property17(int),
+                                                      property18(int),
+                                                      property19(int)>,
+                                      poly::type_list<>>)
             << std::endl;
 
   std::cout
@@ -213,21 +277,30 @@ int main() {
       << "1 unnamed method: "
       << sizeof(poly::Interface<poly::type_list<>, poly::type_list<void(m1)>>)
       << std::endl;
-  std::cout
-      << "9 named methods: "
-      << sizeof(poly::Interface<
-                poly::type_list<>,
-                poly::type_list<void(method), void(method2), void(method3),
-                                void(method4), void(method5), void(method6),
-                                void(method7), void(method8), void(method9)>>)
-      << std::endl;
-  std::cout
-      << "9 unnamed methods: "
-      << sizeof(poly::Interface<poly::type_list<>,
-                                poly::type_list<void(m1), void(m2), void(m3),
-                                                void(m4), void(m5), void(m6),
-                                                void(m7), void(m8), void(m9)>>)
-      << std::endl;
+  std::cout << "9 named methods: "
+            << sizeof(poly::Interface<poly::type_list<>,
+                                      poly::type_list<void(method),
+                                                      void(method2),
+                                                      void(method3),
+                                                      void(method4),
+                                                      void(method5),
+                                                      void(method6),
+                                                      void(method7),
+                                                      void(method8),
+                                                      void(method9)>>)
+            << std::endl;
+  std::cout << "9 unnamed methods: "
+            << sizeof(poly::Interface<poly::type_list<>,
+                                      poly::type_list<void(m1),
+                                                      void(m2),
+                                                      void(m3),
+                                                      void(m4),
+                                                      void(m5),
+                                                      void(m6),
+                                                      void(m7),
+                                                      void(m8),
+                                                      void(m9)>>)
+            << std::endl;
 
   std::cout << "1 named method, 1 named property: "
             << sizeof(poly::Interface<poly::type_list<property1(int)>,
@@ -246,45 +319,84 @@ int main() {
                                       poly::type_list<void(m1)>>)
             << std::endl;
 
-  std::cout
-      << "9 named methods, 9 named properties: "
-      << sizeof(poly::Interface<
-                poly::type_list<property1(int), property2(int), property3(int),
-                                property4(int), property5(int), property6(int),
-                                property7(int), property8(int), property9(int)>,
-                poly::type_list<void(method), void(method2), void(method3),
-                                void(method4), void(method5), void(method6),
-                                void(method7), void(method8), void(method9)>>)
-      << std::endl;
-  std::cout
-      << "9 unnamed methods, 9 named properties: "
-      << sizeof(poly::Interface<
-                poly::type_list<property1(int), property2(int), property3(int),
-                                property4(int), property5(int), property6(int),
-                                property7(int), property8(int), property9(int)>,
-                poly::type_list<void(m1), void(m2), void(m3), void(m4),
-                                void(m5), void(m6), void(m7), void(m8),
-                                void(m9)>>)
-      << std::endl;
-  std::cout
-      << "9 named methods, 9 unnamed properties: "
-      << sizeof(poly::Interface<
-                poly::type_list<
-                    property11(int), property12(int), property13(int),
-                    property14(int), property15(int), property16(int),
-                    property17(int), property18(int), property19(int)>,
-                poly::type_list<void(method), void(method2), void(method3),
-                                void(method4), void(method5), void(method6),
-                                void(method7), void(method8), void(method9)>>)
-      << std::endl;
+  std::cout << "9 named methods, 9 named properties: "
+            << sizeof(poly::Interface<poly::type_list<property1(int),
+                                                      property2(int),
+                                                      property3(int),
+                                                      property4(int),
+                                                      property5(int),
+                                                      property6(int),
+                                                      property7(int),
+                                                      property8(int),
+                                                      property9(int)>,
+                                      poly::type_list<void(method),
+                                                      void(method2),
+                                                      void(method3),
+                                                      void(method4),
+                                                      void(method5),
+                                                      void(method6),
+                                                      void(method7),
+                                                      void(method8),
+                                                      void(method9)>>)
+            << std::endl;
+  std::cout << "9 unnamed methods, 9 named properties: "
+            << sizeof(poly::Interface<poly::type_list<property1(int),
+                                                      property2(int),
+                                                      property3(int),
+                                                      property4(int),
+                                                      property5(int),
+                                                      property6(int),
+                                                      property7(int),
+                                                      property8(int),
+                                                      property9(int)>,
+                                      poly::type_list<void(m1),
+                                                      void(m2),
+                                                      void(m3),
+                                                      void(m4),
+                                                      void(m5),
+                                                      void(m6),
+                                                      void(m7),
+                                                      void(m8),
+                                                      void(m9)>>)
+            << std::endl;
+  std::cout << "9 named methods, 9 unnamed properties: "
+            << sizeof(poly::Interface<poly::type_list<property11(int),
+                                                      property12(int),
+                                                      property13(int),
+                                                      property14(int),
+                                                      property15(int),
+                                                      property16(int),
+                                                      property17(int),
+                                                      property18(int),
+                                                      property19(int)>,
+                                      poly::type_list<void(method),
+                                                      void(method2),
+                                                      void(method3),
+                                                      void(method4),
+                                                      void(method5),
+                                                      void(method6),
+                                                      void(method7),
+                                                      void(method8),
+                                                      void(method9)>>)
+            << std::endl;
   std::cout << "9 unnamed methods, 9 unnamed properties: "
-            << sizeof(poly::Interface<
-                      poly::type_list<
-                          property11(int), property12(int), property13(int),
-                          property14(int), property15(int), property16(int),
-                          property17(int), property18(int), property19(int)>,
-                      poly::type_list<void(m1), void(m2), void(m3), void(m4),
-                                      void(m5), void(m6), void(m7), void(m8),
-                                      void(m9)>>)
+            << sizeof(poly::Interface<poly::type_list<property11(int),
+                                                      property12(int),
+                                                      property13(int),
+                                                      property14(int),
+                                                      property15(int),
+                                                      property16(int),
+                                                      property17(int),
+                                                      property18(int),
+                                                      property19(int)>,
+                                      poly::type_list<void(m1),
+                                                      void(m2),
+                                                      void(m3),
+                                                      void(m4),
+                                                      void(m5),
+                                                      void(m6),
+                                                      void(m7),
+                                                      void(m8),
+                                                      void(m9)>>)
             << std::endl;
 }

@@ -16,59 +16,64 @@
 #include "poly/storage.hpp"
 #include "catch2/catch_test_macros.hpp"
 #include <catch2/catch_all.hpp>
-using namespace poly;
 
-static_assert(poly::is_storage_v<local_storage<32, 8>>);
-static_assert(poly::is_storage_v<local_storage<64, 4>>);
-static_assert(poly::is_storage_v<move_only_local_storage<32, 8>>);
-static_assert(poly::is_storage_v<move_only_local_storage<64, 4>>);
+static_assert(poly::is_storage_v<poly::local_storage<32, 8>>);
+static_assert(poly::is_storage_v<poly::local_storage<64, 4>>);
+static_assert(poly::is_storage_v<poly::move_only_local_storage<32, 8>>);
+static_assert(poly::is_storage_v<poly::move_only_local_storage<64, 4>>);
 
-static_assert(std::is_copy_constructible_v<local_storage<32, 8>>);
-static_assert(std::is_copy_assignable_v<local_storage<32, 8>>);
-static_assert(std::is_move_constructible_v<local_storage<32, 8>>);
-static_assert(std::is_move_assignable_v<local_storage<32, 8>>);
+static_assert(std::is_copy_constructible_v<poly::local_storage<32, 8>>);
+static_assert(std::is_copy_assignable_v<poly::local_storage<32, 8>>);
+static_assert(std::is_move_constructible_v<poly::local_storage<32, 8>>);
+static_assert(std::is_move_assignable_v<poly::local_storage<32, 8>>);
 
-static_assert(not std::is_copy_constructible_v<move_only_local_storage<32, 8>>);
-static_assert(not std::is_copy_assignable_v<move_only_local_storage<32, 8>>);
-static_assert(std::is_move_constructible_v<move_only_local_storage<32, 8>>);
-static_assert(std::is_move_assignable_v<move_only_local_storage<32, 8>>);
+static_assert(
+    not std::is_copy_constructible_v<poly::move_only_local_storage<32, 8>>);
+static_assert(
+    not std::is_copy_assignable_v<poly::move_only_local_storage<32, 8>>);
+static_assert(
+    std::is_move_constructible_v<poly::move_only_local_storage<32, 8>>);
+static_assert(std::is_move_assignable_v<poly::move_only_local_storage<32, 8>>);
 
-static_assert(poly::is_storage_v<sbo_storage<32, 8>>);
-static_assert(poly::is_storage_v<sbo_storage<64, 4>>);
-static_assert(poly::is_storage_v<move_only_sbo_storage<32, 8>>);
-static_assert(poly::is_storage_v<move_only_sbo_storage<64, 4>>);
+static_assert(poly::is_storage_v<poly::sbo_storage<32, 8>>);
+static_assert(poly::is_storage_v<poly::sbo_storage<64, 4>>);
+static_assert(poly::is_storage_v<poly::move_only_sbo_storage<32, 8>>);
+static_assert(poly::is_storage_v<poly::move_only_sbo_storage<64, 4>>);
 
-static_assert(std::is_copy_constructible_v<sbo_storage<32, 8>>);
-static_assert(std::is_copy_assignable_v<sbo_storage<32, 8>>);
-static_assert(std::is_move_constructible_v<sbo_storage<32, 8>>);
-static_assert(std::is_move_assignable_v<sbo_storage<32, 8>>);
+static_assert(std::is_copy_constructible_v<poly::sbo_storage<32, 8>>);
+static_assert(std::is_copy_assignable_v<poly::sbo_storage<32, 8>>);
+static_assert(std::is_move_constructible_v<poly::sbo_storage<32, 8>>);
+static_assert(std::is_move_assignable_v<poly::sbo_storage<32, 8>>);
 
-static_assert(not std::is_copy_constructible_v<move_only_sbo_storage<32, 8>>);
-static_assert(not std::is_copy_assignable_v<move_only_sbo_storage<32, 8>>);
-static_assert(std::is_move_constructible_v<move_only_sbo_storage<32, 8>>);
-static_assert(std::is_move_assignable_v<move_only_sbo_storage<32, 8>>);
+static_assert(
+    not std::is_copy_constructible_v<poly::move_only_sbo_storage<32, 8>>);
+static_assert(
+    not std::is_copy_assignable_v<poly::move_only_sbo_storage<32, 8>>);
+static_assert(std::is_move_constructible_v<poly::move_only_sbo_storage<32, 8>>);
+static_assert(std::is_move_assignable_v<poly::move_only_sbo_storage<32, 8>>);
 
-template <size_t Size, size_t Align> class Tracker {
+template<size_t Size, size_t Align>
+class Tracker {
 public:
-  Tracker(int &c) : count(&c) {
+  Tracker(int& c) : count(&c) {
     assert(count != nullptr);
     ++(*count);
   }
-  Tracker(const Tracker &o) : count(o.count) {
+  Tracker(const Tracker& o) : count(o.count) {
     assert(count != nullptr);
     ++(*count);
   }
-  Tracker(Tracker &&o) : count(o.count) {
+  Tracker(Tracker&& o) : count(o.count) {
     ++(*count);
     assert(count != nullptr);
   }
-  Tracker &operator=(const Tracker &o) {
+  Tracker& operator=(const Tracker& o) {
     count = o.count;
     assert(count != nullptr);
     ++(*count);
     return *this;
   }
-  Tracker &operator=(Tracker &&o) {
+  Tracker& operator=(Tracker&& o) {
     count = o.count;
     assert(count != nullptr);
     ++(*count);
@@ -80,7 +85,7 @@ public:
   }
 
 private:
-  int *count;
+  int* count;
   alignas(Align) std::byte buffer[Size]{};
 };
 TEST_CASE("ref_storage", "[storage]") {
@@ -102,19 +107,12 @@ TEST_CASE("ref_storage", "[storage]") {
 /// covers:
 ///   - construction from T
 TEMPLATE_TEST_CASE(
-    "storage ctor", "[storage]",
-    (poly::type_list<poly::local_storage<32, 8>, Tracker<8, 8>>),
-    (poly::type_list<poly::move_only_local_storage<32, 8>, Tracker<8, 8>>),
-    (poly::type_list<poly::sbo_storage<32, 8>, Tracker<8, 8>>),
-    (poly::type_list<poly::sbo_storage<32, 8>, Tracker<8, 16>>),
-    (poly::type_list<poly::sbo_storage<32, 8>, Tracker<64, 8>>),
-    (poly::type_list<poly::sbo_storage<32, 8>, Tracker<64, 16>>),
-    (poly::type_list<poly::move_only_sbo_storage<32, 8>, Tracker<8, 8>>),
-    (poly::type_list<poly::move_only_sbo_storage<32, 8>, Tracker<8, 16>>),
-    (poly::type_list<poly::move_only_sbo_storage<32, 8>, Tracker<64, 8>>),
-    (poly::type_list<poly::move_only_sbo_storage<32, 8>, Tracker<64, 16>>)) {
+    "storage ctor", "[storage]", (poly::local_storage<32, 8>),
+    (poly::move_only_local_storage<32, 8>), (poly::sbo_storage<32, 8>),
+    (poly::variant_storage<Tracker<64, 16>, Tracker<64, 8>, Tracker<8, 16>>),
+    poly::heap_storage, poly::move_only_heap_storage) {
 
-  using Storage = poly::at_t<TestType, 0>;
+  using Storage = TestType;
   // using Object = poly::at_t<TestType, 1>;
   SECTION("default constructed storages are empty") {
     Storage s;
@@ -140,7 +138,11 @@ TEMPLATE_TEST_CASE(
         Tracker<64, 8>>),
     (poly::type_list<
         poly::variant_storage<Tracker<64, 16>, Tracker<64, 8>, Tracker<8, 16>>,
-        Tracker<8, 16>>)) {
+        Tracker<8, 16>>),
+    (poly::type_list<poly::heap_storage, Tracker<8, 8>>),
+    (poly::type_list<poly::heap_storage, Tracker<8, 16>>),
+    (poly::type_list<poly::heap_storage, Tracker<64, 8>>),
+    (poly::type_list<poly::heap_storage, Tracker<64, 16>>)) {
 
   using Storage = poly::at_t<TestType, 0>;
   using Object = poly::at_t<TestType, 1>;
@@ -242,10 +244,27 @@ TEMPLATE_TEST_CASE(
     (poly::type_list<poly::sbo_storage<32, 8>, Tracker<8, 16>>),
     (poly::type_list<poly::sbo_storage<32, 8>, Tracker<64, 8>>),
     (poly::type_list<poly::sbo_storage<32, 8>, Tracker<64, 16>>),
+    (poly::type_list<
+        poly::variant_storage<Tracker<64, 16>, Tracker<64, 8>, Tracker<8, 16>>,
+        Tracker<64, 16>>),
+    (poly::type_list<
+        poly::variant_storage<Tracker<64, 16>, Tracker<64, 8>, Tracker<8, 16>>,
+        Tracker<64, 8>>),
+    (poly::type_list<
+        poly::variant_storage<Tracker<64, 16>, Tracker<64, 8>, Tracker<8, 16>>,
+        Tracker<8, 16>>),
     (poly::type_list<poly::move_only_sbo_storage<32, 8>, Tracker<8, 8>>),
     (poly::type_list<poly::move_only_sbo_storage<32, 8>, Tracker<8, 16>>),
     (poly::type_list<poly::move_only_sbo_storage<32, 8>, Tracker<64, 8>>),
-    (poly::type_list<poly::move_only_sbo_storage<32, 8>, Tracker<64, 16>>)) {
+    (poly::type_list<poly::move_only_sbo_storage<32, 8>, Tracker<64, 16>>),
+    (poly::type_list<poly::heap_storage, Tracker<8, 8>>),
+    (poly::type_list<poly::heap_storage, Tracker<8, 16>>),
+    (poly::type_list<poly::heap_storage, Tracker<64, 8>>),
+    (poly::type_list<poly::heap_storage, Tracker<64, 16>>),
+    (poly::type_list<poly::move_only_heap_storage, Tracker<8, 8>>),
+    (poly::type_list<poly::move_only_heap_storage, Tracker<8, 16>>),
+    (poly::type_list<poly::move_only_heap_storage, Tracker<64, 8>>),
+    (poly::type_list<poly::move_only_heap_storage, Tracker<64, 16>>)) {
 
   using Storage = poly::at_t<TestType, 0>;
   using Object = poly::at_t<TestType, 1>;
@@ -345,7 +364,24 @@ TEMPLATE_TEST_CASE(
     (poly::type_list<poly::move_only_sbo_storage<32, 8>, Tracker<8, 8>>),
     (poly::type_list<poly::move_only_sbo_storage<32, 8>, Tracker<8, 16>>),
     (poly::type_list<poly::move_only_sbo_storage<32, 8>, Tracker<64, 8>>),
-    (poly::type_list<poly::move_only_sbo_storage<32, 8>, Tracker<64, 16>>)) {
+    (poly::type_list<poly::move_only_sbo_storage<32, 8>, Tracker<64, 16>>),
+    (poly::type_list<
+        poly::variant_storage<Tracker<64, 16>, Tracker<64, 8>, Tracker<8, 16>>,
+        Tracker<64, 16>>),
+    (poly::type_list<
+        poly::variant_storage<Tracker<64, 16>, Tracker<64, 8>, Tracker<8, 16>>,
+        Tracker<64, 8>>),
+    (poly::type_list<
+        poly::variant_storage<Tracker<64, 16>, Tracker<64, 8>, Tracker<8, 16>>,
+        Tracker<8, 16>>),
+    (poly::type_list<poly::heap_storage, Tracker<8, 8>>),
+    (poly::type_list<poly::heap_storage, Tracker<8, 16>>),
+    (poly::type_list<poly::heap_storage, Tracker<64, 8>>),
+    (poly::type_list<poly::heap_storage, Tracker<64, 16>>),
+    (poly::type_list<poly::move_only_heap_storage, Tracker<8, 8>>),
+    (poly::type_list<poly::move_only_heap_storage, Tracker<8, 16>>),
+    (poly::type_list<poly::move_only_heap_storage, Tracker<64, 8>>),
+    (poly::type_list<poly::move_only_heap_storage, Tracker<64, 16>>)) {
   using Storage = poly::at_t<TestType, 0>;
   using Object = poly::at_t<TestType, 1>;
   int count = 0;
@@ -366,10 +402,27 @@ TEMPLATE_TEST_CASE(
     (poly::type_list<poly::sbo_storage<32, 8>, Tracker<8, 16>>),
     (poly::type_list<poly::sbo_storage<32, 8>, Tracker<64, 8>>),
     (poly::type_list<poly::sbo_storage<32, 8>, Tracker<64, 16>>),
+    (poly::type_list<
+        poly::variant_storage<Tracker<64, 16>, Tracker<64, 8>, Tracker<8, 16>>,
+        Tracker<64, 16>>),
+    (poly::type_list<
+        poly::variant_storage<Tracker<64, 16>, Tracker<64, 8>, Tracker<8, 16>>,
+        Tracker<64, 8>>),
+    (poly::type_list<
+        poly::variant_storage<Tracker<64, 16>, Tracker<64, 8>, Tracker<8, 16>>,
+        Tracker<8, 16>>),
     (poly::type_list<poly::move_only_sbo_storage<32, 8>, Tracker<8, 8>>),
     (poly::type_list<poly::move_only_sbo_storage<32, 8>, Tracker<8, 16>>),
     (poly::type_list<poly::move_only_sbo_storage<32, 8>, Tracker<64, 8>>),
-    (poly::type_list<poly::move_only_sbo_storage<32, 8>, Tracker<64, 16>>)) {
+    (poly::type_list<poly::move_only_sbo_storage<32, 8>, Tracker<64, 16>>),
+    (poly::type_list<poly::heap_storage, Tracker<8, 8>>),
+    (poly::type_list<poly::heap_storage, Tracker<8, 16>>),
+    (poly::type_list<poly::heap_storage, Tracker<64, 8>>),
+    (poly::type_list<poly::heap_storage, Tracker<64, 16>>),
+    (poly::type_list<poly::move_only_heap_storage, Tracker<8, 8>>),
+    (poly::type_list<poly::move_only_heap_storage, Tracker<8, 16>>),
+    (poly::type_list<poly::move_only_heap_storage, Tracker<64, 8>>),
+    (poly::type_list<poly::move_only_heap_storage, Tracker<64, 16>>)) {
   using Storage = poly::at_t<TestType, 0>;
   using Object = poly::at_t<TestType, 1>;
   SECTION("emplace into empty storage") {
@@ -394,7 +447,26 @@ TEMPLATE_TEST_CASE(
     REQUIRE(s.data() != nullptr);
   }
 }
-
+using V1 = poly::type_list<
+    poly::variant_storage<Tracker<64, 16>, Tracker<64, 8>, Tracker<8, 16>>,
+    poly::variant_storage<Tracker<64, 16>, Tracker<64, 8>, Tracker<8, 16>>,
+    Tracker<64, 16>, Tracker<64, 16>>;
+using V2 = poly::type_list<
+    poly::variant_storage<Tracker<64, 16>, Tracker<64, 8>, Tracker<8, 16>>,
+    poly::variant_storage<Tracker<64, 16>, Tracker<64, 8>, Tracker<8, 16>>,
+    Tracker<64, 16>, Tracker<64, 8>>;
+using V3 = poly::type_list<
+    poly::variant_storage<Tracker<64, 16>, Tracker<64, 8>, Tracker<8, 16>>,
+    poly::variant_storage<Tracker<64, 16>, Tracker<64, 8>, Tracker<8, 16>>,
+    Tracker<64, 8>, Tracker<64, 16>>;
+using V4 = poly::type_list<
+    poly::variant_storage<Tracker<64, 16>, Tracker<64, 8>, Tracker<8, 16>>,
+    poly::variant_storage<Tracker<64, 16>, Tracker<64, 8>, Tracker<8, 16>>,
+    Tracker<8, 16>, Tracker<64, 16>>;
+using V5 = poly::type_list<
+    poly::variant_storage<Tracker<64, 16>, Tracker<64, 8>, Tracker<8, 16>>,
+    poly::variant_storage<Tracker<64, 16>, Tracker<64, 8>, Tracker<8, 16>>,
+    Tracker<64, 16>, Tracker<8, 16>>;
 /// covers:
 ///   - move assignment
 TEMPLATE_TEST_CASE(
@@ -519,8 +591,24 @@ TEMPLATE_TEST_CASE(
     (poly::type_list<poly::sbo_storage<32, 16>, poly::sbo_storage<24, 8>,
                      Tracker<64, 16>, Tracker<40, 16>>),
     (poly::type_list<poly::sbo_storage<24, 8>, poly::sbo_storage<64, 8>,
-                     Tracker<64, 16>, Tracker<40, 16>>)
-    /* end: object on heap*/) {
+                     Tracker<64, 16>, Tracker<40, 16>>),
+    /* end: object on heap*/
+    /* heap_storage*/
+    (poly::type_list<poly::heap_storage, poly::heap_storage, Tracker<64, 16>,
+                     Tracker<40, 16>>),
+    (poly::type_list<poly::heap_storage, poly::heap_storage, Tracker<64, 16>,
+                     Tracker<64, 16>>),
+    (poly::type_list<poly::heap_storage, poly::heap_storage, Tracker<64, 8>,
+                     Tracker<64, 8>>),
+    /* move_only_heap_storage */
+    (poly::type_list<poly::move_only_heap_storage, poly::move_only_heap_storage,
+                     Tracker<64, 16>, Tracker<40, 16>>),
+    (poly::type_list<poly::move_only_heap_storage, poly::move_only_heap_storage,
+                     Tracker<64, 16>, Tracker<64, 16>>),
+    (poly::type_list<poly::move_only_heap_storage, poly::move_only_heap_storage,
+                     Tracker<64, 8>, Tracker<64, 8>>),
+    /* variant_storage */
+    V1, V2, V3, V4, V5) {
 
   using Storage1 = poly::at_t<TestType, 0>;
   using Storage2 = poly::at_t<TestType, 1>;
@@ -607,11 +695,14 @@ using E = poly::type_list<poly::sbo_storage<16, 8>, poly::sbo_storage<32, 4>,
 using F = poly::type_list<poly::sbo_storage<32, 4>, poly::sbo_storage<16, 8>,
                           Tracker<8, 8>, Tracker<16, 8>, Tracker<32, 8>,
                           Tracker<8, 16>, Tracker<32, 16>>;
+using A1 = poly::type_list<poly::heap_storage, poly::heap_storage,
+                           Tracker<8, 8>, Tracker<16, 8>, Tracker<32, 8>,
+                           Tracker<8, 16>, Tracker<32, 16>>;
 /// covers:
 /// - copy ctor for different sizes
 /// - copy assignment for different sizes
 TEMPLATE_TEST_CASE("copy sbo storage of different sizes", "[storage]", A, B, C,
-                   D, E, F) {
+                   D, E, F, A1) {
 
   using Storage1 = poly::at_t<TestType, 0>;
   using Storage2 = poly::at_t<TestType, 1>;
@@ -828,11 +919,18 @@ using J = poly::type_list<poly::move_only_sbo_storage<32, 8>,
                           poly::move_only_sbo_storage<16, 4>, Tracker<8, 8>,
                           Tracker<16, 8>, Tracker<32, 8>, Tracker<8, 16>,
                           Tracker<32, 16>>;
+using K = poly::type_list<poly::heap_storage, poly::heap_storage, Tracker<8, 8>,
+                          Tracker<16, 8>, Tracker<32, 8>, Tracker<8, 16>,
+                          Tracker<32, 16>>;
+using L =
+    poly::type_list<poly::move_only_heap_storage, poly::move_only_heap_storage,
+                    Tracker<8, 8>, Tracker<16, 8>, Tracker<32, 8>,
+                    Tracker<8, 16>, Tracker<32, 16>>;
 /// covers:
 /// - move ctor for different sizes
 /// - move assignment for different sizes
 TEMPLATE_TEST_CASE("move sbo storage of different sizes", "[storage]", A, B, C,
-                   D, E, F, G, H, I, J) {
+                   D, E, F, G, H, I, J, K, L) {
 
   using Storage1 = poly::at_t<TestType, 0>;
   using Storage2 = poly::at_t<TestType, 1>;
