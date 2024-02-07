@@ -80,6 +80,7 @@ inline constexpr std::size_t max_property_count = POLY_MAX_PROPERTY_COUNT;
 // needed for msvc to get EBCO right
 #  define POLY_EMPTY_BASE __declspec(empty_bases)
 #else
+// GCC/clang already do a good job with EBCO, so the macro is empty
 #  define POLY_EMPTY_BASE
 #endif
 

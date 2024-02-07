@@ -391,7 +391,7 @@ namespace traits {
 /// using SizeSpec = const size(size_t) noexcept;
 /// ```
 ///
-/// Objects using SizeSpec now provide the size property, accessible with
+/// Structs using SizeSpec now provide the size property, accessible with
 /// ```
 /// obj.get<size>()
 /// ```
@@ -491,7 +491,7 @@ inline constexpr bool is_const_method_v =
 /// @addtogroup Storage Storage Concept
 /// Storages represent a type erased container.
 ///
-/// Objects of arbitrary types can be emplaced, that is they are
+/// Objects of arbitrary type can be emplaced, that is they are
 /// stored owning or non-owning, in a Storage object.
 ///
 /// Objects are emplaced into a Storage with its emplace() template method.

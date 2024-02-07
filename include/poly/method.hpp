@@ -65,6 +65,12 @@ template<typename Ret, typename MethodName, typename T, typename... Args,
 Ret extend(MethodName, const T& t, Args... args);
 /// @}
 
+} // namespace poly
+
+#if POLY_USE_MACROS
+
+#  define POLY_METHODS(...) poly::type_list<__VA_ARGS__>
+
 /// @ingroup  method_extension
 /// @def POLY_METHOD(MethodName)
 /// Defines the method name MethodName.
@@ -78,9 +84,9 @@ Ret extend(MethodName, const T& t, Args... args);
 /// If injection is enabled, the struct defined will also contain an inner
 /// class template called injector, i.e. the macro wil expand to:
 ///
-/// ```
+/// ```cpp
 /// _this_type{
-/// template<typenameSelf,typename Spec>
+/// template<typename Self,typename Spec>
 /// struct injector{};
 /// };
 /// ```
@@ -88,173 +94,73 @@ Ret extend(MethodName, const T& t, Args... args);
 /// If default extension is enabled, a generic extend() function for
 /// MethodName is defined in the following way:
 ///
-/// ```
+/// ```cpp
 /// template<typename T,typename...Args>
 /// decltype(auto) extend(MethodName, T& t, Args&&...args){
 ///   return t.MethodName(std::forward<Args>(args)...);
 /// }
 /// ```
-} // namespace poly
-
-#if POLY_USE_MACROS
-
-#  define POLY_METHODS(...) poly::type_list<__VA_ARGS__>
-
 #  define POLY_METHOD(MethodName) \
     POLY_METHOD_IMPL(MethodName)  \
     POLY_DEFAULT_EXTEND_IMPL(MethodName)
 
 #  if POLY_USE_METHOD_INJECTOR
 
-#    define POLY_METHOD_IMPL(MethodName)                                       \
-      struct MethodName {                                                      \
-        using _this_type = MethodName;                                         \
-        template<typename Self, typename MethodSpecOrListOfSpecs>              \
-        struct POLY_EMPTY_BASE injector;                                       \
-                                                                               \
-        /** specialization for non overloaded method*/                         \
-        template<typename Self, typename Ret, typename... Args>                \
-        struct POLY_EMPTY_BASE injector<Self, Ret(MethodName, Args...)> {      \
-          constexpr Ret MethodName(Args... args) {                             \
-            Self* self = static_cast<Self*>(this);                             \
-            return self->template call<_this_type>(                            \
-                std::forward<Args>(args)...);                                  \
-          }                                                                    \
-        };                                                                     \
-                                                                               \
-        template<typename Self, typename Ret, typename... Args>                \
-        struct POLY_EMPTY_BASE                                                 \
-            injector<Self, Ret(MethodName, Args...) const> {                   \
-          constexpr Ret MethodName(Args... args) const {                       \
-            const Self* self = static_cast<const Self*>(this);                 \
-            return self->template call<_this_type>(                            \
-                std::forward<Args>(args)...);                                  \
-          }                                                                    \
-        };                                                                     \
-                                                                               \
-        template<typename Self, typename Ret, typename... Args>                \
-        struct injector<Self, Ret(MethodName, Args...) noexcept> {             \
-          constexpr Ret MethodName(Args... args) noexcept {                    \
-            Self* self = static_cast<Self*>(this);                             \
-            return self->template call<_this_type>(                            \
-                std::forward<Args>(args)...);                                  \
-          }                                                                    \
-        };                                                                     \
-                                                                               \
-        template<typename Self, typename Ret, typename... Args>                \
-        struct POLY_EMPTY_BASE                                                 \
-            injector<Self, Ret(MethodName, Args...) const noexcept> {          \
-          constexpr Ret MethodName(Args... args) const noexcept {              \
-            const Self* self = static_cast<const Self*>(this);                 \
-            return self->template call<_this_type>(                            \
-                std::forward<Args>(args)...);                                  \
-          }                                                                    \
-        };                                                                     \
-                                                                               \
-        /** specialization for overloaded methods */                           \
-        /** cannot use variadic inheritance because of empty base optimization \
-         */                                                                    \
-        /** issues -> linear single inheritance */                             \
-        template<typename Self, template<typename...> typename List,           \
-                 typename Ret, typename... Args, typename... Specs>            \
-        struct POLY_EMPTY_BASE                                                 \
-            injector<Self, List<Ret(MethodName, Args...), Specs...>>           \
-            : public injector<Self, List<Specs...>> {                          \
-          using injector<Self, List<Specs...>>::MethodName;                    \
-                                                                               \
-          Ret MethodName(Args... args) {                                       \
-            Self* self = static_cast<Self*>(this);                             \
-            return self->template call<_this_type>(                            \
-                std::forward<Args>(args)...);                                  \
-          }                                                                    \
-        };                                                                     \
-                                                                               \
-        template<typename Self, template<typename...> typename List,           \
-                 typename Ret, typename... Args, typename... Specs>            \
-        struct POLY_EMPTY_BASE                                                 \
-            injector<Self, List<Ret(MethodName, Args...) noexcept, Specs...>>  \
-            : public injector<Self, List<Specs...>> {                          \
-          using injector<Self, List<Specs...>>::MethodName;                    \
-                                                                               \
-          Ret MethodName(Args... args) noexcept {                              \
-            Self* self = static_cast<Self*>(this);                             \
-            return self->template call<_this_type>(                            \
-                std::forward<Args>(args)...);                                  \
-          }                                                                    \
-        };                                                                     \
-                                                                               \
-        template<typename Self, template<typename...> typename List,           \
-                 typename Ret, typename... Args, typename... Specs>            \
-        struct POLY_EMPTY_BASE                                                 \
-            injector<Self, List<Ret(MethodName, Args...) const, Specs...>>     \
-            : public injector<Self, List<Specs...>> {                          \
-          using injector<Self, List<Specs...>>::MethodName;                    \
-                                                                               \
-          Ret MethodName(Args... args) const {                                 \
-            Self* self = static_cast<Self*>(this);                             \
-            return self->template call<_this_type>(                            \
-                std::forward<Args>(args)...);                                  \
-          }                                                                    \
-        };                                                                     \
-                                                                               \
-        template<typename Self, template<typename...> typename List,           \
-                 typename Ret, typename... Args, typename... Specs>            \
-        struct POLY_EMPTY_BASE injector<                                       \
-            Self, List<Ret(MethodName, Args...) const noexcept, Specs...>>     \
-            : public injector<Self, List<Specs...>> {                          \
-          using injector<Self, List<Specs...>>::MethodName;                    \
-                                                                               \
-          Ret MethodName(Args... args) const noexcept {                        \
-            Self* self = static_cast<Self*>(this);                             \
-            return self->template call<_this_type>(                            \
-                std::forward<Args>(args)...);                                  \
-          }                                                                    \
-        };                                                                     \
-                                                                               \
-        template<typename Self, template<typename...> typename List,           \
-                 typename Ret, typename... Args>                               \
-        struct POLY_EMPTY_BASE                                                 \
-            injector<Self, List<Ret(MethodName, Args...)>> {                   \
-          Ret MethodName(Args... args) {                                       \
-            Self* self = static_cast<Self*>(this);                             \
-            return self->template call<_this_type>(                            \
-                std::forward<Args>(args)...);                                  \
-          }                                                                    \
-        };                                                                     \
-                                                                               \
-        template<typename Self, template<typename...> typename List,           \
-                 typename Ret, typename... Args>                               \
-        struct POLY_EMPTY_BASE                                                 \
-            injector<Self, List<Ret(MethodName, Args...) noexcept>> {          \
-                                                                               \
-          Ret MethodName(Args... args) noexcept {                              \
-            Self* self = static_cast<Self*>(this);                             \
-            return self->template call<_this_type>(                            \
-                std::forward<Args>(args)...);                                  \
-          }                                                                    \
-        };                                                                     \
-                                                                               \
-        template<typename Self, template<typename...> typename List,           \
-                 typename Ret, typename... Args>                               \
-        struct POLY_EMPTY_BASE                                                 \
-            injector<Self, List<Ret(MethodName, Args...) const>> {             \
-          Ret MethodName(Args... args) const {                                 \
-            Self* self = static_cast<Self*>(this);                             \
-            return self->template call<_this_type>(                            \
-                std::forward<Args>(args)...);                                  \
-          }                                                                    \
-        };                                                                     \
-                                                                               \
-        template<typename Self, template<typename...> typename List,           \
-                 typename Ret, typename... Args>                               \
-        struct POLY_EMPTY_BASE                                                 \
-            injector<Self, List<Ret(MethodName, Args...) const noexcept>> {    \
-          Ret MethodName(Args... args) const noexcept {                        \
-            Self* self = static_cast<Self*>(this);                             \
-            return self->template call<_this_type>(                            \
-                std::forward<Args>(args)...);                                  \
-          }                                                                    \
-        };                                                                     \
+#    define POLY_METHOD_IMPL(MethodName)                                     \
+      struct MethodName {                                                    \
+        using _this_type = MethodName;                                       \
+        template<typename Self, typename MethodSpecOrListOfSpecs>            \
+        struct POLY_EMPTY_BASE injector;                                     \
+                                                                             \
+        /** specialization for non overloaded method*/                       \
+        template<typename Self, typename Ret, typename... Args>              \
+        struct POLY_EMPTY_BASE injector<Self, Ret(MethodName, Args...)> {    \
+          constexpr Ret MethodName(Args... args) {                           \
+            Self* self = static_cast<Self*>(this);                           \
+            return self->template call<_this_type>(                          \
+                std::forward<Args>(args)...);                                \
+          }                                                                  \
+        };                                                                   \
+                                                                             \
+        template<typename Self, typename Ret, typename... Args>              \
+        struct POLY_EMPTY_BASE                                               \
+            injector<Self, Ret(MethodName, Args...) const> {                 \
+          constexpr Ret MethodName(Args... args) const {                     \
+            const Self* self = static_cast<const Self*>(this);               \
+            return self->template call<_this_type>(                          \
+                std::forward<Args>(args)...);                                \
+          }                                                                  \
+        };                                                                   \
+                                                                             \
+        template<typename Self, typename Ret, typename... Args>              \
+        struct injector<Self, Ret(MethodName, Args...) noexcept> {           \
+          constexpr Ret MethodName(Args... args) noexcept {                  \
+            Self* self = static_cast<Self*>(this);                           \
+            return self->template call<_this_type>(                          \
+                std::forward<Args>(args)...);                                \
+          }                                                                  \
+        };                                                                   \
+                                                                             \
+        template<typename Self, typename Ret, typename... Args>              \
+        struct POLY_EMPTY_BASE                                               \
+            injector<Self, Ret(MethodName, Args...) const noexcept> {        \
+          constexpr Ret MethodName(Args... args) const noexcept {            \
+            const Self* self = static_cast<const Self*>(this);               \
+            return self->template call<_this_type>(                          \
+                std::forward<Args>(args)...);                                \
+          }                                                                  \
+        };                                                                   \
+                                                                             \
+        /** specialization for overloaded methods */                         \
+        template<typename Self, template<typename...> typename List,         \
+                 typename Spec, typename... Specs>                           \
+        struct POLY_EMPTY_BASE injector<Self, List<Spec, Specs...>>          \
+            : public injector<Self, Spec>, public injector<Self, Specs>... { \
+          using injector<Self, Spec>::MethodName;                            \
+          using injector<Self, Specs>::MethodName...;                        \
+          static_assert(                                                     \
+              std::is_same_v<_this_type, poly::method_name_t<Spec>>);        \
+        };                                                                   \
       };
 
 #  else

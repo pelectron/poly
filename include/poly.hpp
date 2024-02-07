@@ -18,7 +18,7 @@
 #define INC_PROPERTIES_HPP_
 
 #include "poly/interface.hpp"
-#include "poly/object.hpp"
+#include "poly/struct.hpp"
 #include "poly/storage.hpp"
 
 #endif /* INC_PROPERTIES_HPP_ */

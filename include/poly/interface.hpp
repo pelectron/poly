@@ -16,29 +16,29 @@
 #ifndef POLY_INTERFACE_HPP
 #define POLY_INTERFACE_HPP
 
-#include "poly/interface_method.hpp"
-#include "poly/interface_property.hpp"
-#include "poly/object.hpp"
+#include "poly/interface_method_entry.hpp"
+#include "poly/interface_property_entry.hpp"
+#include "poly/struct.hpp"
 #include "poly/traits.hpp"
 
 namespace poly {
 namespace detail {
 
-  /// wrapper for an object_table.
+  /// wrapper for an struct_table.
   /// @{
   template<POLY_TYPE_LIST PropertySpecs, POLY_TYPE_LIST MethodSpecs>
-  struct InterfaceTable;
+  struct interface_table;
 
   template<template<typename...> typename L, POLY_PROP_SPEC... PropertySpecs,
            POLY_METHOD_SPEC... MethodSpecs>
-  struct InterfaceTable<L<PropertySpecs...>, L<MethodSpecs...>>
-      : public InterfaceVTableEntry<MethodSpecs>...,
-        InterfacePTableEntry<PropertySpecs>... {
+  struct interface_table<L<PropertySpecs...>, L<MethodSpecs...>>
+      : public interface_method_entry<MethodSpecs>...,
+        interface_property_entry<PropertySpecs>... {
   public:
-    using InterfaceVTableEntry<MethodSpecs>::operator()...;
+    using interface_method_entry<MethodSpecs>::operator()...;
     template<typename MethodName, typename... Args>
     static constexpr bool nothrow_callable =
-        noexcept((*std::declval<const VTable<MethodSpecs...>*>())(
+        noexcept((*std::declval<const method_table<MethodSpecs...>*>())(
             MethodName{}, std::declval<void*>(), std::declval<Args>()...));
 
     template<typename Name>
@@ -50,43 +50,45 @@ namespace detail {
     template<typename Name>
     static constexpr bool is_const = is_const_property_v<spec_for<Name>>;
 
-    constexpr InterfaceTable(const InterfaceTable&) noexcept = default;
-    constexpr InterfaceTable(InterfaceTable&&) noexcept = default;
-    constexpr InterfaceTable&
-    operator=(const InterfaceTable&) noexcept = default;
-    constexpr InterfaceTable& operator=(InterfaceTable&&) noexcept = default;
+    constexpr interface_table(const interface_table&) noexcept = default;
+    constexpr interface_table(interface_table&&) noexcept = default;
+    constexpr interface_table&
+    operator=(const interface_table&) noexcept = default;
+    constexpr interface_table& operator=(interface_table&&) noexcept = default;
 
     // construct from other InterfaceTable featureing a super set of
     // properties and methods
     template<typename Ps, typename Ms>
-    InterfaceTable(const InterfaceTable<Ps, Ms>& other)
-        : InterfaceVTableEntry<MethodSpecs>(
-              static_cast<const InterfaceVTableEntry<MethodSpecs>&>(other))...,
-          InterfacePTableEntry<PropertySpecs>(
-              static_cast<const InterfacePTableEntry<PropertySpecs>&>(
+    interface_table(const interface_table<Ps, Ms>& other)
+        : interface_method_entry<MethodSpecs>(
+              static_cast<const interface_method_entry<MethodSpecs>&>(
+                  other))...,
+          interface_property_entry<PropertySpecs>(
+              static_cast<const interface_property_entry<PropertySpecs>&>(
                   other))...,
           table_(other.table_) {}
 
     template<typename Ps, typename Ms>
-    InterfaceTable(const object_table<Ps, Ms>* table)
+    interface_table(const struct_table<Ps, Ms>* table)
         // note: aggregate initialization of base classes on purpose->
         // direclty initialize offset
-        : InterfaceVTableEntry<MethodSpecs>{object_table<Ps, Ms>::method_offset(
-              traits::Id<MethodSpecs>{})}...,
-          InterfacePTableEntry<PropertySpecs>{
-              object_table<Ps, Ms>::property_offset(
+        : interface_method_entry<MethodSpecs>{struct_table<
+              Ps, Ms>::method_offset(traits::Id<MethodSpecs>{})}...,
+          interface_property_entry<PropertySpecs>{
+              struct_table<Ps, Ms>::property_offset(
                   traits::Id<PropertySpecs>{})}...,
           table_(table) {
       static_assert(
           poly::detail::list_size<Ms>::value <= poly::config::max_method_count,
-          "Error while creating an Interface from an Object: the number of "
-          "methods in the Object exceeds POLY_MAX_METHOD_COUNT . Adjust the "
+          "Error while creating an Interface from a Struct: the number of "
+          "methods in the Struct exceeds POLY_MAX_METHOD_COUNT . Adjust the "
           "POLY_MAX_METHOD_COUNT macro to reflect the maximum number of "
           "methods accurately before including ANY poly header.");
       static_assert(
-          poly::detail::list_size<Ps>::value <= poly::config::max_property_count,
-          "Error while creating an Interface from an Object: the number of "
-          "properties in the Object exceeds POLY_MAX_PROPERTY_COUNT. Adjust "
+          poly::detail::list_size<Ps>::value <=
+              poly::config::max_property_count,
+          "Error while creating an Interface from a Struct: the number of "
+          "properties in the Struct exceeds POLY_MAX_PROPERTY_COUNT. Adjust "
           "the macro to reflect the maximum number of porperties accurately "
           "before including ANY poly header.");
     }
@@ -125,30 +127,30 @@ namespace detail {
 
   private:
     const void* table_{
-        nullptr}; ///< points to original object_table this is created with
+        nullptr}; ///< points to original struct_table this is created with
   };
   /// @}
 
   template<POLY_STORAGE StorageType, POLY_TYPE_LIST PropertySpecs,
            POLY_TYPE_LIST MethodSpecs, POLY_TYPE_LIST OverLoads>
-  struct basic_interface_impl;
+  struct interface_impl;
 
   template<POLY_STORAGE StorageType, template<typename...> typename List,
            typename... PropertySpecs, typename... MethodSpecs,
            typename... Overloads>
   struct POLY_EMPTY_BASE
-      basic_interface_impl<StorageType, List<PropertySpecs...>,
+      interface_impl<StorageType, List<PropertySpecs...>,
                            List<MethodSpecs...>, List<Overloads...>>
-      : detail::MethodInjector<
-            Overloads,
-            basic_interface_impl<StorageType, List<PropertySpecs...>,
-                                 List<MethodSpecs...>, List<Overloads...>>>...,
+      : detail::method_injector_for_t<
+            interface_impl<StorageType, List<PropertySpecs...>,
+                                 List<MethodSpecs...>, List<Overloads...>>,
+            Overloads>...,
         detail::property_injector_for_t<
-            PropertySpecs,
-            basic_interface_impl<StorageType, List<PropertySpecs...>,
-                                 List<MethodSpecs...>, List<Overloads...>>>... {
+            interface_impl<StorageType, List<PropertySpecs...>,
+                                 List<MethodSpecs...>, List<Overloads...>>,
+            PropertySpecs>... {
     using table_type =
-        detail::InterfaceTable<List<PropertySpecs...>, List<MethodSpecs...>>;
+        detail::interface_table<List<PropertySpecs...>, List<MethodSpecs...>>;
 
   public:
     template<typename MethodName, typename... Args>
@@ -167,36 +169,36 @@ namespace detail {
     using method_specs = List<MethodSpecs...>;
 
     template<typename S, typename Ps, typename Ms>
-    basic_interface_impl(basic_object<S, Ps, Ms>& obj)
+    interface_impl(Struct<S, Ps, Ms>& obj)
         : storage_(obj.storage_), vtbl_(obj.vtbl_) {}
 
     template<typename S, typename Ps, typename Ms,
              typename = std::enable_if_t<
                  std::is_constructible_v<StorageType, const S&>>>
-    basic_interface_impl(const basic_object<S, Ps, Ms>& obj) noexcept(
+    interface_impl(const Struct<S, Ps, Ms>& obj) noexcept(
         std::is_nothrow_constructible_v<StorageType, const S&>)
         : storage_(obj.storage_), vtbl_(obj.vtbl_) {}
 
     template<
         typename S, typename Ps, typename Ms,
         typename = std::enable_if_t<std::is_constructible_v<StorageType, S&&>>>
-    basic_interface_impl(basic_object<S, Ps, Ms>&& obj) noexcept(
+    interface_impl(Struct<S, Ps, Ms>&& obj) noexcept(
         std::is_nothrow_constructible_v<StorageType, S&&>)
         : storage_(std::move(obj.storage_)), vtbl_(obj.vtbl_) {}
 
-    basic_interface_impl(const basic_interface_impl& other) noexcept(
+    interface_impl(const interface_impl& other) noexcept(
         std::is_nothrow_copy_constructible_v<StorageType>)
         : storage_(other.storage_), vtbl_(other.vtbl_) {}
 
-    basic_interface_impl(basic_interface_impl&& other) noexcept(
+    interface_impl(interface_impl&& other) noexcept(
         std::is_nothrow_move_constructible_v<StorageType>)
         : storage_(std::move(other.storage_)), vtbl_(other.vtbl_) {}
 
     template<typename S, typename Ps, typename Ms, typename Os,
              typename = std::enable_if_t<
                  std::is_constructible_v<StorageType, const S&>>>
-    basic_interface_impl(
-        const basic_interface_impl<S, Ps, Ms, Os>&
+    interface_impl(
+        const interface_impl<S, Ps, Ms, Os>&
             other) noexcept(std::is_nothrow_constructible_v<StorageType,
                                                             const S&>)
         : storage_(other.storage_), vtbl_(other.vtbl_) {}
@@ -204,20 +206,20 @@ namespace detail {
     template<
         typename S, typename Ps, typename Ms, typename Os,
         typename = std::enable_if_t<std::is_constructible_v<StorageType, S&&>>>
-    basic_interface_impl(basic_interface_impl<S, Ps, Ms, Os>&& other) noexcept(
+    interface_impl(interface_impl<S, Ps, Ms, Os>&& other) noexcept(
         std::is_nothrow_constructible_v<StorageType, S&&>)
         : storage_(std::move(other.storage_)), vtbl_(other.vtbl_) {}
 
     template<typename S = StorageType,
              typename = std::enable_if_t<std::is_copy_constructible_v<S>>>
-    basic_interface_impl& operator=(const basic_interface_impl& other) noexcept(
+    interface_impl& operator=(const interface_impl& other) noexcept(
         std::is_nothrow_constructible_v<S>) {
       storage_ = other.storage_;
       vtbl_ = other.vtbl_;
       return *this;
     }
 
-    basic_interface_impl& operator=(basic_interface_impl&& other) noexcept(
+    interface_impl& operator=(interface_impl&& other) noexcept(
         std::is_nothrow_move_constructible_v<StorageType>) {
       storage_ = std::move(other.storage_);
       vtbl_ = other.vtbl_;
@@ -226,8 +228,8 @@ namespace detail {
     template<
         typename S, typename Ps, typename Ms, typename Os,
         typename = std::enable_if_t<std::is_assignable_v<StorageType, S&&>>>
-    basic_interface_impl&
-    operator=(basic_interface_impl<S, Ps, Ms, Os>&& other) noexcept(
+    interface_impl&
+    operator=(interface_impl<S, Ps, Ms, Os>&& other) noexcept(
         std::is_nothrow_assignable_v<StorageType, S&&>) {
       storage_ = std::move(other.storage_);
       vtbl_ = other.vtbl_;
@@ -236,8 +238,8 @@ namespace detail {
     template<typename S, typename Ps, typename Ms, typename Os,
              typename =
                  std::enable_if_t<std::is_assignable_v<StorageType, const S&>>>
-    basic_interface_impl&
-    operator=(const basic_interface_impl<S, Ps, Ms, Os>& other) noexcept(
+    interface_impl&
+    operator=(const interface_impl<S, Ps, Ms, Os>& other) noexcept(
         std::is_nothrow_assignable_v<StorageType, const S&>) {
       storage_ = other.storage_;
       vtbl_ = other.vtbl_;
@@ -282,28 +284,28 @@ namespace detail {
   };
 } // namespace detail
 /// @addtogroup interface Interface
-/// An Interface provides a subset of an Object.
+/// An Interface provides a subset of a Struct.
 /// @{
 
-/// An Interface provides a subset of an Object. They can constrain existing
-/// Object types and are more flexible, as they can be created from any Object
+/// An Interface provides a subset of a Struct. They can constrain existing
+/// Struct types and are more flexible, as they can be created from any Struct
 /// or Interface providing a super set of the methods and properties specified
 /// by the MethodSpecs and PropertySpecs.
 ///
-/// Interfaces can only be created from Objects/Interfaces providing a super
+/// Interfaces can only be created from Struct/Interfaces providing a super
 /// set of properties and methods, and not directly from types implementing
 /// the specified methods and properties.
 ///
-/// @note Interfaces do not generate extra vtables and property tables, but
-/// adapt the tables from the Object the Interface is created from. This
+/// @note Interfaces do not generate extra method and property tables, but
+/// adapt the tables from the Struct it is created from. This
 /// necessitates extra stack space for each instance, and disables constexpr
 /// use because of pointer arithmetic and casting.
 ///
-/// @warning If an Object with more than 255 properties is bound to an
+/// @warning If a Struct with more than 255 properties is bound to an
 /// Interface with at least one property, the macro POLY_MAX_PROPERTY_COUNT
 /// must be set accordingly before including any poly header.
 ///
-/// @warning If an Object with more than 255 methods is bound to an Interface
+/// @warning If a Struct with more than 255 methods is bound to an Interface
 /// with at least one method, the macro POLY_MAX_METHOD_COUNT must be set
 /// accordingly before including any poly header.
 ///
@@ -315,7 +317,7 @@ namespace detail {
 /// @}
 template<POLY_STORAGE StorageType, POLY_TYPE_LIST PropertySpecs,
          POLY_TYPE_LIST MethodSpecs>
-using basic_interface = detail::basic_interface_impl<
+using Interface = detail::interface_impl<
     StorageType, PropertySpecs, MethodSpecs,
     typename detail::collapse_overloads<MethodSpecs>::type>;
 /// An non owning Interface. Can be used to pass Objects, References and other
@@ -324,7 +326,7 @@ using basic_interface = detail::basic_interface_impl<
 /// @warning The same lifetime restrictions apply as with @ref Reference
 /// "References".
 template<typename PropertySpecs, typename MethodSpecs>
-using Interface = basic_interface<ref_storage, PropertySpecs, MethodSpecs>;
+using InterfaceRef = Interface<ref_storage, PropertySpecs, MethodSpecs>;
 
 /// @}
 } // namespace poly

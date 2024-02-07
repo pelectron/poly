@@ -23,17 +23,17 @@ POLY_METHOD(method2);
 POLY_PROPERTY(property);
 struct property2 {};
 using OBJ =
-    poly::basic_object<poly::sbo_storage<32>, POLY_PROPERTIES(property(int)),
+    poly::Struct<poly::sbo_storage<32>, POLY_PROPERTIES(property(int)),
                        POLY_METHODS(int(method), int(method2),
                                     int(method2, int), int(method2, int, float),
                                     int(method2, int, double),
                                     void(method2, float))>;
 
 using SubIf =
-    poly::Interface<POLY_PROPERTIES(property(int)),
+    poly::InterfaceRef<POLY_PROPERTIES(property(int)),
                     POLY_METHODS(int(method), int(method2, int), int(method2))>;
 using REF =
-    poly::Interface<POLY_PROPERTIES(property(int)),
+    poly::Reference<POLY_PROPERTIES(property(int)),
                     POLY_METHODS(int(method), int(method2), int(method2, int),
                                  int(method2, int, float),
                                  int(method2, int, double))>;

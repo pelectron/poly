@@ -13,18 +13,22 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
-#ifndef POLY_OBJECT_TABLE_HPP
-#define POLY_OBJECT_TABLE_HPP
+#ifndef POLY_METHOD_TABLE_HPP
+#define POLY_METHOD_TABLE_HPP
 #include "poly/method.hpp"
 #include "poly/traits.hpp"
 
 #include <cassert>
 namespace poly::detail {
-/// The MethodInjector is used to inject methods by name.
+template<typename Self, typename MethodSpecOrListOfSpecs>
+struct NullMethodInjector {};
+
 /// @{
 /// default method injector does nothing
-template<typename MethodSpecOrListOfSpecs, typename Self, typename = void>
-struct MethodInjector {};
+template<typename Self, typename SpecOrList, typename = void>
+struct method_injector_for {
+  using type = NullMethodInjector<Self, SpecOrList>;
+};
 
 /// if the method was created with the POLY_METHOD macro, there will be an
 /// innner template named "injector" present in the method, which is templated
@@ -32,21 +36,28 @@ struct MethodInjector {};
 /// its real name, i.e. "Method". This allows the end user to use the syntax
 /// obj.Method(args...) instead of obj.call<Method>(args...).
 /// @{
-template<POLY_METHOD_SPEC Spec, typename Self>
-struct POLY_EMPTY_BASE MethodInjector<
-    Spec, Self,
-    std::void_t<typename method_name_t<Spec>::template injector<Self, Spec>>>
-    : public method_name_t<Spec>::template injector<Self, Spec> {};
+template<typename Self, POLY_METHOD_SPEC Spec>
+struct method_injector_for<
+    Self, Spec,
+    std::void_t<typename method_name_t<Spec>::template injector<Self, Spec>>> {
+  using type = method_name_t<Spec>::template injector<Self, Spec>;
+};
 
-/// sepcialization for overloaded methods
+/// specialization for overloaded methods
 template<template<typename...> typename List, POLY_METHOD_SPEC... MethodSpecs,
          typename Self>
-struct POLY_EMPTY_BASE MethodInjector<
-    List<MethodSpecs...>, Self,
+struct POLY_EMPTY_BASE method_injector_for<
+    Self, List<MethodSpecs...>,
     std::void_t<typename poly::method_name_t<at_t<List<MethodSpecs...>, 0>>::
-                    template injector<Self, List<MethodSpecs...>>>>
-    : public poly::method_name_t<at_t<List<MethodSpecs...>, 0>>::
-          template injector<Self, List<MethodSpecs...>> {};
+                    template injector<Self, List<MethodSpecs...>>>> {
+  using type =
+      poly::method_name_t<at_t<List<MethodSpecs...>, 0>>::template injector<
+          Self, List<MethodSpecs...>>;
+};
+
+template<typename Self, typename SpecOrList>
+using method_injector_for_t =
+    typename method_injector_for<Self, SpecOrList, void>::type;
 /// @}
 /// @}
 template<typename Name, POLY_TYPE_LIST SpecList>
@@ -145,6 +156,7 @@ struct trampoline;
 
 template<typename Ret, typename Method, typename... Args>
 struct trampoline<Ret(Method, Args...)> {
+
   template<typename T>
   static constexpr Ret jump(Method, void* t, Args... args) {
     using poly::extend;
@@ -153,6 +165,7 @@ struct trampoline<Ret(Method, Args...)> {
 };
 template<typename Ret, typename Method, typename... Args>
 struct trampoline<Ret(Method, Args...) const> {
+
   template<typename T>
   static constexpr Ret jump(Method, const void* t, Args... args) {
     using poly::extend;
@@ -163,6 +176,7 @@ struct trampoline<Ret(Method, Args...) const> {
 };
 template<typename Ret, typename Method, typename... Args>
 struct trampoline<Ret(Method, Args...) noexcept> {
+
   template<typename T>
   static constexpr Ret jump(Method, void* t, Args... args) noexcept {
     static_assert(
@@ -176,6 +190,7 @@ struct trampoline<Ret(Method, Args...) noexcept> {
 };
 template<typename Ret, typename Method, typename... Args>
 struct trampoline<Ret(Method, Args...) const noexcept> {
+
   template<typename T>
   static constexpr Ret jump(Method, const void* t, Args... args) noexcept {
     static_assert(
@@ -192,22 +207,25 @@ struct trampoline<Ret(Method, Args...) const noexcept> {
 };
 /// @}
 
-/// Individual VTable entry. Stores the address of
+/// Individual entry in the method table. Stores the address of
 /// trampoline<MethodSpec>::jump and provides a function call operator to
-/// invoke the function.
+/// invoke the function. The function call operator is necessary to enable
+/// native c++ overload resolution instead of implementing koenigs lookup
+/// manually with templates.
 /// @{
-template<typename MethodSpec>
-struct VTableEntry;
+template<POLY_METHOD_SPEC MethodSpec>
+struct method_entry;
 
 /// VTable specialization for non const method
 template<typename Ret, typename Method, typename... Args>
-struct VTableEntry<Ret(Method, Args...)> {
+struct method_entry<Ret(Method, Args...)> {
+
   template<typename T>
-  constexpr VTableEntry(poly::traits::Id<T>) noexcept
+  constexpr method_entry(poly::traits::Id<T>) noexcept
       : func(std::addressof(
             trampoline<Ret(Method, Args...)>::template jump<T>)) {}
 
-  constexpr VTableEntry() noexcept {}
+  constexpr method_entry() noexcept {}
 
   constexpr Ret operator()(Method m, void* t, Args... args) const {
     assert(t);
@@ -219,13 +237,14 @@ struct VTableEntry<Ret(Method, Args...)> {
 
 /// VTable specialization for const method
 template<typename Ret, typename Method, typename... Args>
-struct VTableEntry<Ret(Method, Args...) const> {
+struct method_entry<Ret(Method, Args...) const> {
+
   template<typename T>
-  constexpr VTableEntry(poly::traits::Id<T>) noexcept
+  constexpr method_entry(poly::traits::Id<T>) noexcept
       : func(std::addressof(
             trampoline<Ret(Method, Args...) const>::template jump<T>)) {}
 
-  constexpr VTableEntry() noexcept {}
+  constexpr method_entry() noexcept {}
 
   constexpr Ret operator()(Method m, const void* t, Args... args) const {
     assert(t);
@@ -237,13 +256,14 @@ struct VTableEntry<Ret(Method, Args...) const> {
 
 /// VTable specialization for non const noexcept method
 template<typename Ret, typename Method, typename... Args>
-struct VTableEntry<Ret(Method, Args...) noexcept> {
+struct method_entry<Ret(Method, Args...) noexcept> {
+
   template<typename T>
-  constexpr VTableEntry(poly::traits::Id<T>) noexcept
+  constexpr method_entry(poly::traits::Id<T>) noexcept
       : func(std::addressof(
             trampoline<Ret(Method, Args...)>::template jump<T>)) {}
 
-  constexpr VTableEntry() noexcept {}
+  constexpr method_entry() noexcept {}
 
   constexpr Ret operator()(Method m, void* t, Args... args) const noexcept {
     assert(t);
@@ -255,13 +275,14 @@ struct VTableEntry<Ret(Method, Args...) noexcept> {
 
 /// VTable specialization for const noexcept method
 template<typename Ret, typename Method, typename... Args>
-struct VTableEntry<Ret(Method, Args...) const noexcept> {
+struct method_entry<Ret(Method, Args...) const noexcept> {
+
   template<typename T>
-  constexpr VTableEntry(poly::traits::Id<T>) noexcept
+  constexpr method_entry(poly::traits::Id<T>) noexcept
       : func(std::addressof(
             trampoline<Ret(Method, Args...) const>::template jump<T>)) {}
 
-  constexpr VTableEntry() noexcept {}
+  constexpr method_entry() noexcept {}
 
   constexpr Ret operator()(Method m, const void* t,
                            Args... args) const noexcept {
@@ -280,30 +301,34 @@ using method_offset_type =
 
 /// complete vtable for a set of  @ref MethodSpec "method specs"
 template<POLY_METHOD_SPEC... MethodSpecs>
-struct POLY_EMPTY_BASE VTable : private VTableEntry<MethodSpecs>... {
-  using VTableEntry<MethodSpecs>::operator()...;
-  template<typename T>
-  constexpr VTable(poly::traits::Id<T> id) noexcept
-      : VTableEntry<MethodSpecs>(id)... {}
+struct method_table : private method_entry<MethodSpecs>... {
 
-  constexpr VTable() noexcept {};
+  static_assert((is_method_spec_v<MethodSpecs> && ...));
+
+  using method_entry<MethodSpecs>::operator()...;
+
+  template<typename T>
+  constexpr method_table(poly::traits::Id<T> id) noexcept
+      : method_entry<MethodSpecs>(id)... {}
+
+  constexpr method_table() noexcept = default;
 
   /// used by InterfaceVTable
   template<POLY_METHOD_SPEC Spec>
   static method_offset_type method_offset(traits::Id<Spec>) noexcept {
-    constexpr VTable<MethodSpecs...> t;
+    constexpr method_table<MethodSpecs...> t;
     const std::byte* this_ =
         static_cast<const std::byte*>(static_cast<const void*>(&t));
     const std::byte* entry_ = static_cast<const std::byte*>(
-        static_cast<const void*>(static_cast<const VTableEntry<Spec>*>(&t)));
+        static_cast<const void*>(static_cast<const method_entry<Spec>*>(&t)));
     return static_cast<method_offset_type>(entry_ - this_);
   }
 };
 
-/// object vtable for T and a set of @ref MethodSpec "method specs"
+/// object vtable for T and a list of @ref MethodSpec "method specs"
 template<typename T, POLY_TYPE_LIST MethodSpecs>
-inline constexpr auto vtable_for =
-    apply_t<MethodSpecs, VTable>(poly::traits::Id<T>{});
+inline constexpr auto method_table_for =
+    apply_t<MethodSpecs, method_table>(poly::traits::Id<T>{});
 
 } // namespace poly::detail
 #endif

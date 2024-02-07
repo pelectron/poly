@@ -53,7 +53,7 @@ struct property17 {};
 struct property18 {};
 struct property19 {};
 int main() {
-  std::cout << "different poly::basic_object sizes in bytes" << std::endl;
+  std::cout << "different poly::Reference sizes in bytes" << std::endl;
 
   std::cout << "base size: "
             << sizeof(poly::Reference<poly::type_list<>, poly::type_list<>>)
@@ -226,24 +226,24 @@ int main() {
                                                       void(m8),
                                                       void(m9)>>)
             << std::endl;
-  std::cout << "different poly::basic_interface sizes in bytes" << std::endl;
+  std::cout << "different poly::InterfaceRef sizes in bytes" << std::endl;
 
   std::cout << "base size: "
-            << sizeof(poly::Interface<poly::type_list<>, poly::type_list<>>)
+            << sizeof(poly::InterfaceRef<poly::type_list<>, poly::type_list<>>)
             << std::endl;
 
   std::cout << "One named property: "
-            << sizeof(poly::Interface<poly::type_list<property1(int)>,
+            << sizeof(poly::InterfaceRef<poly::type_list<property1(int)>,
                                       poly::type_list<>>)
             << std::endl;
 
   std::cout << "One unnamed property: "
-            << sizeof(poly::Interface<poly::type_list<property11(int)>,
+            << sizeof(poly::InterfaceRef<poly::type_list<property11(int)>,
                                       poly::type_list<>>)
             << std::endl;
 
   std::cout << "9 named properties: "
-            << sizeof(poly::Interface<poly::type_list<property1(int),
+            << sizeof(poly::InterfaceRef<poly::type_list<property1(int),
                                                       property2(int),
                                                       property3(int),
                                                       property4(int),
@@ -256,7 +256,7 @@ int main() {
             << std::endl;
 
   std::cout << "9 unnamed properties: "
-            << sizeof(poly::Interface<poly::type_list<property11(int),
+            << sizeof(poly::InterfaceRef<poly::type_list<property11(int),
                                                       property12(int),
                                                       property13(int),
                                                       property14(int),
@@ -271,14 +271,14 @@ int main() {
   std::cout
       << "1 named method: "
       << sizeof(
-             poly::Interface<poly::type_list<>, poly::type_list<void(method)>>)
+             poly::InterfaceRef<poly::type_list<>, poly::type_list<void(method)>>)
       << std::endl;
   std::cout
       << "1 unnamed method: "
-      << sizeof(poly::Interface<poly::type_list<>, poly::type_list<void(m1)>>)
+      << sizeof(poly::InterfaceRef<poly::type_list<>, poly::type_list<void(m1)>>)
       << std::endl;
   std::cout << "9 named methods: "
-            << sizeof(poly::Interface<poly::type_list<>,
+            << sizeof(poly::InterfaceRef<poly::type_list<>,
                                       poly::type_list<void(method),
                                                       void(method2),
                                                       void(method3),
@@ -290,7 +290,7 @@ int main() {
                                                       void(method9)>>)
             << std::endl;
   std::cout << "9 unnamed methods: "
-            << sizeof(poly::Interface<poly::type_list<>,
+            << sizeof(poly::InterfaceRef<poly::type_list<>,
                                       poly::type_list<void(m1),
                                                       void(m2),
                                                       void(m3),
@@ -303,24 +303,24 @@ int main() {
             << std::endl;
 
   std::cout << "1 named method, 1 named property: "
-            << sizeof(poly::Interface<poly::type_list<property1(int)>,
+            << sizeof(poly::InterfaceRef<poly::type_list<property1(int)>,
                                       poly::type_list<void(method)>>)
             << std::endl;
   std::cout << "1 unnamed method, 1 named property: "
-            << sizeof(poly::Interface<poly::type_list<property1(int)>,
+            << sizeof(poly::InterfaceRef<poly::type_list<property1(int)>,
                                       poly::type_list<void(m1)>>)
             << std::endl;
   std::cout << "1 named method, 1 unnamed property: "
-            << sizeof(poly::Interface<poly::type_list<property11(int)>,
+            << sizeof(poly::InterfaceRef<poly::type_list<property11(int)>,
                                       poly::type_list<void(method)>>)
             << std::endl;
   std::cout << "1 unnamed method, 1 unnamed property: "
-            << sizeof(poly::Interface<poly::type_list<property11(int)>,
+            << sizeof(poly::InterfaceRef<poly::type_list<property11(int)>,
                                       poly::type_list<void(m1)>>)
             << std::endl;
 
   std::cout << "9 named methods, 9 named properties: "
-            << sizeof(poly::Interface<poly::type_list<property1(int),
+            << sizeof(poly::InterfaceRef<poly::type_list<property1(int),
                                                       property2(int),
                                                       property3(int),
                                                       property4(int),
@@ -340,7 +340,7 @@ int main() {
                                                       void(method9)>>)
             << std::endl;
   std::cout << "9 unnamed methods, 9 named properties: "
-            << sizeof(poly::Interface<poly::type_list<property1(int),
+            << sizeof(poly::InterfaceRef<poly::type_list<property1(int),
                                                       property2(int),
                                                       property3(int),
                                                       property4(int),
@@ -360,7 +360,7 @@ int main() {
                                                       void(m9)>>)
             << std::endl;
   std::cout << "9 named methods, 9 unnamed properties: "
-            << sizeof(poly::Interface<poly::type_list<property11(int),
+            << sizeof(poly::InterfaceRef<poly::type_list<property11(int),
                                                       property12(int),
                                                       property13(int),
                                                       property14(int),
@@ -380,7 +380,7 @@ int main() {
                                                       void(method9)>>)
             << std::endl;
   std::cout << "9 unnamed methods, 9 unnamed properties: "
-            << sizeof(poly::Interface<poly::type_list<property11(int),
+            << sizeof(poly::InterfaceRef<poly::type_list<property11(int),
                                                       property12(int),
                                                       property13(int),
                                                       property14(int),

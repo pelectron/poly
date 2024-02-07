@@ -113,8 +113,8 @@ bool check(PropertyName, const T& t, const Type& new_value);
 ///   t.Name = v;
 /// }
 ///
-/// template<typename T, typename ValueType>
-/// ValueType get(Name, const T& t) {
+/// template<typename T>
+/// auto get(Name, const T& t) {
 ///   return t.Name;
 /// }
 /// ```
