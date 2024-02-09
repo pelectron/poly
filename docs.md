@@ -663,6 +663,65 @@ i.e. using `#define POLY_XXX` before including poly headers.
 - `POLY_COMPILING_LIBRARY`: must be defined when compiling the poly library (but
   not when using the library)
 
+## Method Extension
+
+To implement a method with the name `Name`, return type `Ret` and arguments
+`Args...` for a type `T`, the following free function must be defined:
+
+```cpp
+// for non const methods, add noexcept if MethodSpec is noexcept
+Ret extend(Name, T&t, Args... args){
+    // ... implementation stuff
+}
+
+// for const methods, add noexcept if MethodSpec is noexcept
+Ret extend(Name, const T&, Args... args){
+    // ... implementation stuff
+}
+```
+
+`extend()` is located through ADL, so it should be defined in the same namespace
+as `Name` or `T`.
+
+## Property Extension
+
+Properties with name `Name` and value type `V` are
+implemented for a type `T` by minimally providing the free function `get()`.
+Both const and non const properties use `get()` to retrieve a property value.
+
+```cpp
+// add noexcept for noexcept properties
+V get(Name, const T& t){
+    // ... implementation stuff
+    return V(...);
+}
+```
+
+Mutable, i.e. non const, properties can also be modified. The `set()` function
+must be provided to implement this behaviour.
+
+```cpp
+// add noexcept for noexcept properties
+void set(Name, T& t, const V& new_value){
+    // ... implementation stuff
+}
+```
+
+In addition to `set()`, a `check()` function can optionally be provided.
+`check()` checks if the new value to be set is valid. When `check()` exists,
+then its return value is used to determine if `set()` is called (`check() ==
+true`) or not.
+
+```cpp
+bool check(Name, const T&, const V& new_value){
+    // determine if new_value is a valid value for an instance of T.
+    // return true if new_value is valid, false otherwise
+}
+```
+
+`get`, `set` and `check` are located through ADL, and as such should be defined
+in the same namespace as `Name` or `T`.
+
 ## Considerations
 
 This library relies on empty base class optimizations (EBCO) to get the smallest
