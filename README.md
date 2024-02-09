@@ -60,10 +60,6 @@ poly can also be compiled as a shared or static library.
 
 For that, compile `poly/lib.cpp` with `POLY_COMPILING_LIBRARY` defined.
 
-### Meson
-
-Simply include poly as a subproject.
-
 ## A small sample
 
 Imagine an graphics application or library. One feature of such software could
