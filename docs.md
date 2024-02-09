@@ -637,32 +637,6 @@ Assignment versions of the constructors.
 See `poly::Struct`s [member functions](#struct-mem-funcs). Ditto for [injected
 methods](#injected-methods) and [properties](#injected-properties).
 
-## Configuration
-
-poly has a few configuration macros, which can be used to disable certain
-aspects of the library. These must be defined BEFORE including any poly header,
-i.e. using `#define POLY_XXX` before including poly headers.
-
-- `POLY_DISABLE_MACROS`: disables the definition of function like macros.
-- `POLY_DISABLE_INJECTION`: disables name injection for methods and properties.
-- `POLY_DISABLE_METHOD_INJECTION`: disables name injection for methods.
-- `POLY_DISABLE_PROPERTY_INJECTION`: disables name injection for properties.
-- `POLY_DISABLE_DEFAULT_PROPERTY_ACCESS`: disables generation of default get()
-  and set() functions when using the `POLY_PROPERTY` macro to define property names
-- `POLY_DISABLE_DEFAULT_EXTEND`: disables generation of default extend()
-  function when using the `POLY_METHOD` macro to define method names
-- `POLY_MAX_METHOD_COUNT`: defines the maximum number of methods a
-  `poly::Struct` can have when used in combination with `poly::Interface`.
-  Defaults to 256. A static assertion will be triggered if this value is too
-  low.
-- `POLY_MAX_PROPERTY_COUNT`: defines the maximum number of properties a
-  `poly::Struct` can have when used in combination with `poly::Interface`.
-  Defaults to 256. A static assertion will be triggered if this value is too
-  low.
-- `POLY_HEADER_ONLY`: must be defined if poly is used as a header only library
-- `POLY_COMPILING_LIBRARY`: must be defined when compiling the poly library (but
-  not when using the library)
-
 ## Method Extension
 
 To implement a method with the name `Name`, return type `Ret` and arguments
@@ -766,6 +740,32 @@ Interface with M methods and P properties, of which p are named, can be calculat
 O = (ceil(p/N) + ceil((M + P)/N)) * N
 
 where N = sizeof(void\*).
+
+## Configuration
+
+poly has a few configuration macros, which can be used to disable certain
+aspects of the library. These must be defined BEFORE including any poly header,
+i.e. using `#define POLY_XXX` before including poly headers.
+
+- `POLY_DISABLE_MACROS`: disables the definition of function like macros.
+- `POLY_DISABLE_INJECTION`: disables name injection for methods and properties.
+- `POLY_DISABLE_METHOD_INJECTION`: disables name injection for methods.
+- `POLY_DISABLE_PROPERTY_INJECTION`: disables name injection for properties.
+- `POLY_DISABLE_DEFAULT_PROPERTY_ACCESS`: disables generation of default get()
+  and set() functions when using the `POLY_PROPERTY` macro to define property names
+- `POLY_DISABLE_DEFAULT_EXTEND`: disables generation of default extend()
+  function when using the `POLY_METHOD` macro to define method names
+- `POLY_MAX_METHOD_COUNT`: defines the maximum number of methods a
+  `poly::Struct` can have when used in combination with `poly::Interface`.
+  Defaults to 256. A static assertion will be triggered if this value is too
+  low.
+- `POLY_MAX_PROPERTY_COUNT`: defines the maximum number of properties a
+  `poly::Struct` can have when used in combination with `poly::Interface`.
+  Defaults to 256. A static assertion will be triggered if this value is too
+  low.
+- `POLY_HEADER_ONLY`: must be defined if poly is used as a header only library
+- `POLY_COMPILING_LIBRARY`: must be defined when compiling the poly library (but
+  not when using the library)
 
 ## Building the library without meson
 
