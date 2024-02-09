@@ -57,7 +57,7 @@ namespace detail {
         property_name_t<PropertySpec>::template injector<Self, PropertySpec>;
   };
 
-  template< typename Self,POLY_PROP_SPEC PropertySpec>
+  template<typename Self, POLY_PROP_SPEC PropertySpec>
   using property_injector_for_t = typename get_property_injector<
       Self, PropertySpec,
       has_property_injector<Self, PropertySpec>::value>::type;
@@ -303,8 +303,9 @@ namespace detail {
       constexpr property_table<PropertySpec...> t;
       const std::byte* this_ =
           static_cast<const std::byte*>(static_cast<const void*>(&t));
-      const std::byte* entry_ = static_cast<const std::byte*>(
-          static_cast<const void*>(static_cast<const property_entry<Spec>*>(&t)));
+      const std::byte* entry_ =
+          static_cast<const std::byte*>(static_cast<const void*>(
+              static_cast<const property_entry<Spec>*>(&t)));
       return static_cast<property_offset_type>(entry_ - this_);
     }
   };

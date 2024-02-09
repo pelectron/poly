@@ -30,9 +30,9 @@ struct interface_property_entry<const Name(Type)> {
   Type get(Name, const void* table, const void* t) const {
     assert(table);
     assert(t);
-    const auto* entry =
-        static_cast<const property_entry<const Name(Type)>*>(static_cast<const void*>(
-            static_cast<const std::byte*>(table) + offset));
+    const auto* entry = static_cast<const property_entry<const Name(Type)>*>(
+        static_cast<const void*>(static_cast<const std::byte*>(table) +
+                                 offset));
     return entry->get(Name{}, t);
   }
 
@@ -45,9 +45,10 @@ struct interface_property_entry<const Name(Type) noexcept> {
   Type get(Name, const void* table, const void* t) const noexcept {
     assert(table);
     assert(t);
-    const auto* entry = static_cast<const property_entry<const Name(Type) noexcept>*>(
-        static_cast<const void*>(static_cast<const std::byte*>(table) +
-                                 offset));
+    const auto* entry =
+        static_cast<const property_entry<const Name(Type) noexcept>*>(
+            static_cast<const void*>(static_cast<const std::byte*>(table) +
+                                     offset));
     return entry->get(Name{}, t);
   }
 

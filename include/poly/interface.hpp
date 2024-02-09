@@ -139,15 +139,15 @@ namespace detail {
            typename... PropertySpecs, typename... MethodSpecs,
            typename... Overloads>
   struct POLY_EMPTY_BASE
-      interface_impl<StorageType, List<PropertySpecs...>,
-                           List<MethodSpecs...>, List<Overloads...>>
+      interface_impl<StorageType, List<PropertySpecs...>, List<MethodSpecs...>,
+                     List<Overloads...>>
       : detail::method_injector_for_t<
             interface_impl<StorageType, List<PropertySpecs...>,
-                                 List<MethodSpecs...>, List<Overloads...>>,
+                           List<MethodSpecs...>, List<Overloads...>>,
             Overloads>...,
         detail::property_injector_for_t<
             interface_impl<StorageType, List<PropertySpecs...>,
-                                 List<MethodSpecs...>, List<Overloads...>>,
+                           List<MethodSpecs...>, List<Overloads...>>,
             PropertySpecs>... {
     using table_type =
         detail::interface_table<List<PropertySpecs...>, List<MethodSpecs...>>;
@@ -197,10 +197,8 @@ namespace detail {
     template<typename S, typename Ps, typename Ms, typename Os,
              typename = std::enable_if_t<
                  std::is_constructible_v<StorageType, const S&>>>
-    interface_impl(
-        const interface_impl<S, Ps, Ms, Os>&
-            other) noexcept(std::is_nothrow_constructible_v<StorageType,
-                                                            const S&>)
+    interface_impl(const interface_impl<S, Ps, Ms, Os>& other) noexcept(
+        std::is_nothrow_constructible_v<StorageType, const S&>)
         : storage_(other.storage_), vtbl_(other.vtbl_) {}
 
     template<
@@ -228,8 +226,7 @@ namespace detail {
     template<
         typename S, typename Ps, typename Ms, typename Os,
         typename = std::enable_if_t<std::is_assignable_v<StorageType, S&&>>>
-    interface_impl&
-    operator=(interface_impl<S, Ps, Ms, Os>&& other) noexcept(
+    interface_impl& operator=(interface_impl<S, Ps, Ms, Os>&& other) noexcept(
         std::is_nothrow_assignable_v<StorageType, S&&>) {
       storage_ = std::move(other.storage_);
       vtbl_ = other.vtbl_;

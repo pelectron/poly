@@ -1,21 +1,20 @@
 poly enables and/or emulates polymorphic use of member variables and member
-functions. It does so by providing the template `poly::basic_object`.
-The polymorphic member variables of `poly::basic_object` are referred to as
-**properties**. The polymorphic member functions of `poly::basic_object` are called
-**methods**.
+functions. It does so by providing the template `poly::Struct` and
+`poly::Interface`. The polymorphic member variables poly provides are referred
+to as **properties**. The polymorphic member functions are called **methods**.
 
 ## Names
 
 Properties and methods have a name associated with them, just like
 any ordinary member variable or function has a name.
 
-In poly, the name of a method or property is an empty, fully defined struct, i.e.
+In poly, the name of a method or property is an empty, fully defined struct/class, i.e.
 `struct any_name{};`.
 
-poly also provides name injection via use of the POLY_METHOD and POLY_PROPERTY
-macros. Defining method and property names with these macros will enable the
-usage of said method or property directly by name in a `poly::basic_object`
-featuring it.
+poly also provides name injection via use of the `POLY_METHOD` and
+`POLY_PROPERTY` macros. Defining method and property names with these macros
+will enable the usage of said method or property directly by name in a
+`poly::Struct` featuring it.
 
 ```cpp
 #include "poly.hpp"
@@ -24,7 +23,7 @@ POLY_METHOD(my_method)
 // defines the propety name my_property
 POLY_PROPERTY(my_property)
 
-// obj refers to an instance of poly::basic_object with a method called my_method and
+// obj refers to an instance of poly::Struct with a method called my_method and
 // property called my_property.
 // with name injection, the names can be used directly:
 auto ret_val = obj.my_method(...);
@@ -90,7 +89,7 @@ using calc2 = double(calculate, double) const noexcept;
 // calc3 specifies a throwing non const method with the name calculate, 
 // taking no arguments and returning nothing
 using calc3 = void(calculate);
-// not a MethodSpec
+// not a MethodSpec, double is nopt a valid method name
 using calc4 = void(double, double);
 
 static_assert(poly::is_method_spec_v<calc1>);
@@ -134,7 +133,7 @@ using ro_timeout = const timeout(std::chrono::milliseconds) noexcept;
 ## Storage
 
 poly uses the concept of a Storage to store data in a type erased manner, and
-provides a few default implementations of the Storage concept.
+provides a few implementations of the Storage concept.
 
 For a type `T` to satisfy the Storage concept, the following must hold with `t`
 and `ct` denoting an object of type `T` and `const T` respectively, `U` denoting
@@ -152,8 +151,8 @@ object of type `U&`:
   - `t.emplace<U>(args...)`: returns U&, i.e. reference to the value emplaced.
   - `t.emplace<U>(u)`: returns U&, typically u itself if non owning Storage.
 
-`poly::is_storage_v` can be used to check if T syntactically satisfies the
-storage concept (also works with C++17). In C++20 and above, the concept
+`poly::is_storage_v<T>` can be used to check if  a `T` syntactically satisfies
+the storage concept (also works with C++17). In C++20 and above, the concept
 poly::Storage can be used.
 
 A minimal class satisfying the Storage requirements is depicted below
@@ -180,7 +179,7 @@ poly provides the following storage classes and class templates:
 
 - Non owing Storages:
   - `poly::ref_storage`:  Only contains `void*` to
-    objects "stored"
+    objects emplaced. Does not own the emplaced value, but merely references it.
 - Storages without dynamic allocation
   - `poly::local_storage<Size,Align>`: stores any type without allocating
     memory, if `sizeof(type) <= Size` and `alignof(type) <= Align`. type must
@@ -196,6 +195,10 @@ poly provides the following storage classes and class templates:
     type must be move and copy constructible.
   - `poly::move_only_storage<Size,Align>`: same as above, but types only need to
     be move constructible. Cannot be copied.
+- Storages which always heap allocate.
+  - `poly::heap_storage`: stores any move and copy constructible type on the
+    heap. Can be used accross DLL boundaries if poly is compiled as a DLL.
+  - `poly::move_only_heap_storage`: move only version of `poly::heap_storage`
 
 ## Type list
 
@@ -205,20 +208,24 @@ template which can take an arbitrary amount of type parameters. poly has a type
 list type, namely `poly::type_list`, but any template featuring a single
 variadic type parameter pack works, for example `std::tuple`.
 
-## poly::basic_object
+## poly::Struct
 
-`poly::basic_object` is one of two main class templates this library provides.
-It contains a storage of type `StorageType`, a pointer to a "vtable", and
+`poly::Struct` is one of two main class templates this library provides.
+It contains a [storage](#storage) of type `StorageType` and a pointer to a "vtable", and
 provides the properties and methods defined in the `PropertySpecs`
-and`MethodSpecs` list.
+and`MethodSpecs` list. It is constexpr friendly, i.e. if the `StorageType` is
+constexpr then `Struct` will also be constexpr constructible and methods
+are callable at compile time, given that the underlying extension function is
+constexpr. Accessing injected properties by name is the only thing not not
+available in a constexpr context.
 
-`poly::basic_object` is defined in the following way (with C++20 concept notation):
+`poly::Struct` is defined in the following way (with C++20 concept notation):
 
 ```cpp
 template <poly::Storage StorageType, 
           poly::PropertySpecList PropertySpecs,
           poly::MethodSpecList MethodSpecs>
-class basic_object;
+class Struct;
 ```
 
 ### Template Parameters
@@ -236,87 +243,88 @@ class basic_object;
 
 `using property_specs = PropertySpecs;`
 
-`method_specs = MethodSpecs;`
+`using method_specs = MethodSpecs;`
 
-### Constructor
+### Constructors
 
-`basic_object` is constructible from other `basic_object`s with compatible storages
+`Struct` is constructible from other `Struct`s with compatible storages
 and the same MethodSpecs and PropertySpecs in the same order(i.e.
-`std::is_same_v<typename basic_object::methodspecs,typename other_basic_object::method_specs>`
-is true, ditto for `basic_object::property_specs`) and from types implementing the specified
-properties and methods.
+`std::is_same_v<typename Struct::methodspecs,typename other_Struct::method_specs>`
+is true, ditto for `Struct::property_specs`), and from types implementing the specified
+properties and methods. The constructors are constexpr if the `StoraqgeType` is
+constexpr capable.
 
-#### `basic_object(const basic_object&)`
+#### `Struct(const Struct&)`
 
 Copy constructor. Enabled if `std::is_copy_constructible_v<StorageType>` is
 true.
 
-#### `basic_object(basic_object&&)`
+#### `Struct(Struct&&)`
 
 Move constructor
 
-#### `basic_object(const basic_object<S,PropertySpecs,MethodSpecs>&)`
+#### `Struct(const Struct<S,PropertySpecs,MethodSpecs>&)`
 
-Copy construct from `basic_object` with a different storage type. Enabled if
+Copy construct from `Struct` with a different (but compatible) storage type. Enabled if
 `std::is_constructible_v<StorageType,const S&>` is true.
 
-#### `basic_object(basic_object<S,PropertySpecs,MethodSpecs>&&)`
+#### `Struct(Struct<S,PropertySpecs,MethodSpecs>&&)`
 
-Move construct from `basic_object` wtih a different storage type. Enabled if
+Move construct from `Struct` with a different (but compatible) storage type. Enabled if
 `std::is_constructible_v<StorageType, S&&>` is true.
 
-#### `basic_object(basic_object<S,PropertySpecs,MethodSpecs>&)`
+#### `Struct(Struct<S,PropertySpecs,MethodSpecs>&)`
 
-Constructs a `basic_object` from an lvalue reference to another `basic_object`.
+Constructs a `Struct` from an lvalue reference to another `Struct`.
 Enabled if `std::is_same_v<StorageType, poly::ref_storage>` is true.
 
-#### `basic_object(T&&)`
+#### `Struct(T&&)`
 
 Template Parameters | Description |
 --------------------|-------------|
 `T` | type of object to store |
 
-Constructs a basic_object containing a `T`, i.e. stores the `T` in its
-storage. `T` must implement the methods and properties given in the
-`MethodSpecs` and `PropertySpecs` of the `basic_object`.
+Constructs a Struct containing a `std::decay_t<T>`, i.e. stores the decayed
+version of `T` in its storage. `T` must implement the methods and properties
+given in the `MethodSpecs` and `PropertySpecs` of the `Struct`.
 
 ### Assignment
 
-`basic_object` is assignable from other `basic_object`s with compatible storages
+`Struct` is assignable from other `Struct`s with compatible storages
 and from types implementing the specified properties and methods.
 
-#### `basic_object::operator=(const basic_object&)`
+#### `Struct::operator=(const Struct&)`
 
 Copy assignment operator. Enabled if
 `std::is_copy_assignable_v<StorageType>` is true.
 
-#### `basic_object::operator=(basic_object&&)`
+#### `Struct::operator=(Struct&&)`
 
 Move assignment operator.
 
-#### `basic_object::operator=(const basic_object<S,PropertySpecs,MethodSpecs>&)`
+#### `Struct::operator=(const Struct<S,PropertySpecs,MethodSpecs>&)`
 
-Copy assign from `basic_object` with a different storage type. Enabled if
+Copy assign from `Struct` with a different storage type. Enabled if
 `std::is_assignable_v<StorageType,const S&>` is true.
 
-#### `basic_object::operator=(basic_object<S,PropertySpecs,MethodSpecs>&&)`
+#### `Struct::operator=(Struct<S,PropertySpecs,MethodSpecs>&&)`
 
-Move assign from `basic_object` wtih a different storage type. Enabled if
+Move assign from `Struct` wtih a different storage type. Enabled if
 `std::is_assignable_v<StorageType, S&&>` is true.
 
-#### basic_object::operator=(T&&)
+#### Struct::operator=(T&&)
 
 Template Parameters | Description |
 --------------------|-------------|
 `T` | type of object to store |
 
-Assigns a `T` to the `basic_object`, i.e. stores the `T` in its storage. `T`
+Assigns a `T` to the `Struct`, i.e. stores the `T` in its storage. `T`
 must implement the methods and properties given in the `MethodSpecs` and
 `PropertySpecs`.
 
-### Member Functions
+### <a name="struct-mem-funcs"></a>Member Functions
 
-#### `Ret basic_object::call<Name>(Args&&...args) noexcept(/*as specified*/)`
+#### <a name="call-func"></a>`Ret Struct::call<Name>(Args&&...args) noexcept(/*as specified*/)`
 
 Template Parameters | Description |
 --------------------|-------------|
@@ -326,8 +334,8 @@ Template Parameters | Description |
 
 This is the member function to use to invoke poly methods. It invokes the
 method with the name `Name` and arguments `args` on the value stored in the
-`basic_object`. This requires that a method invocable with `args` is specified in
-the `basic_object`.
+`Struct`. This requires that a method invocable with `args` is specified in
+the `Struct`.
 
 The combination of `Name` and `Args` does not have to match exactly to any of
 the `MethodSpecs`. Standard C++ overload resolution and argument conversion
@@ -358,7 +366,7 @@ using Methods = poly::type_list<int  (m1)const
 //   float m2(int) const;
 //   int m2(float) const;
 // };
-using Object = poly::basic_object<Storage,Properties,Methods>;
+using Object = poly::Struct<Storage,Properties,Methods>;
 
 int use_object(const Object& obj, int i){
     // without name injection
@@ -374,13 +382,12 @@ int use_object(const Object& obj, int i){
 
 ```
 
-#### `Ret basic_object::call<Name>(Args&&...args) const noexcept(/*as specified*/)`
+#### `Ret Struct::call<Name>(Args&&...args) const noexcept(/*as specified*/)`
 
-Same as
-[`basic_object::call<Name>(args...)`](<#ret-basic_object%3A%3Acall%3Cname%3E(args%26%26...args)-noexcept(%2F*as-specified*%2F)>),
-but only for const methods.
+Same as [`Struct::call<Name>(args...)`](#call-func), but only for const
+methods.
 
-#### `value_type_for<Name> basic_object::get<Name>() const noexcept(/*as specified*/)`
+#### <a name="get-func"></a>`value_type_for<Name> Struct::get<Name>() const noexcept(/*as specified*/)`
 
 Template Parameters | Description |
 --------------------|-------------|
@@ -410,7 +417,7 @@ using Methods = poly::type_list<...>;
 //   int p1;
 //   const float p2;
 // };
-using Object = poly::basic_object<Storage,Properties,Methods>;
+using Object = poly::Struct<Storage,Properties,Methods>;
 
 float use_object(const Object& obj){
     // without name injection
@@ -421,7 +428,7 @@ float use_object(const Object& obj){
 }
 ```
 
-#### `bool basic_object::set<Name>(const value_type_for<Name>& new_value)`
+#### <a name="set-func"></a>`bool Struct::set<Name>(const value_type_for<Name>& new_value)`
 
 Template Parameters | Description |
 --------------------|-------------|
@@ -432,20 +439,20 @@ Sets the value of the property with name `Name` to `new_value`.
 Returns whether `new_value` was successfully set or not.
 
 `new_value` is not set if a `check()` function is defined for the object `t` of
-type `T` currently stored in basic_object, and `check(t, new_value)` returns
+type `T` currently stored in Struct, and `check(t, new_value)` returns
 false. If `check()` is not defined, `set()` will always return true.
 
-### Injected Methods
+### <a name="injected-methods"></a>Injected Methods
 
 Methods specified with a name that was created with the `POLY_METHOD` macro are
-available in the public interface of basic_object as a standard c++ member
+available in the public interface of Struct as a standard c++ member
 function with that name.
 
 #### Example
 
 `method1` is an injectable method name (if name injection is enabled).
 `method2` cannot be injected by name, but can still used with
-[`call`](<#ret-basic_object%3A%3Acall%3Cname%3E(args%26%26...args)-noexcept(%2F*as-specified*%2F)>).
+[`call`](#call-func).
 
 ```cpp
 #include "poly.hpp"
@@ -456,7 +463,7 @@ struct my_method2{};
 using Storage = ...;
 using methods = poly::type_list<void(my_method1),void(my_method2)>;
 
-using Object = poly::basic_object<Storage,type_list<>,methods>;
+using Object = poly::Struct<Storage,type_list<>,methods>;
 
 void use_object(Object obj){
    obj.my_method1(); // injected method is a normal c++ member function
@@ -467,19 +474,17 @@ void use_object(Object obj){
 }
 ```
 
-### Injected Properties
+### <a name="injected-properties"></a>Injected Properties
 
 Properties specified with a name that was created with the `POLY_PROPERTY`
-macro are available in the public interface of basic_object as a standard c++
+macro are available in the public interface of Struct as a standard c++
 member variable with that name.
 
 #### Example
 
 `property1` is an injectable method name (if name injection is enabled).
 `property2` cannot be injected by name, but can still used with
-[`set`](<#bool-basic_object%3A%3Aset%3Cname%3E(const-value_type_for%3Cname%3E%26-new_value)>)
-and
-[`get`](<#value_type_for%3Cname%3E-basic_object%3A%3Aget%3Cname%3E()-const-noexcept(%2F*as-specified*%2F)>).
+[`set`](#set-func) and [`get`](#get-func).
 
 ```cpp
 #include "poly.hpp"
@@ -490,7 +495,7 @@ struct property2{};
 using Storage = ...;
 using properties = poly::type_list<property1(float),const property2(float)>;
 
-using Object = poly::basic_object<Storage, properties, type_list<>>;
+using Object = poly::Struct<Storage, properties, type_list<>>;
 
 void use_object(Object obj){
    // injected members act like a normal c++ member variables
@@ -528,13 +533,109 @@ POLY_METHOD(write)
 POLY_METHOD(read)
 POLY_PROPERTY(timeout)
 
-using Device = poly::basic_object<poly::sbo_storage<32>,
+using Device = poly::Struct<poly::sbo_storage<32>,
                                   poly::type_list<timeout(std::chrono::milliseconds)>,
                                   poly::type_list<void(write, const std::string&), 
                                                   std::string(read)>>;
 
 Device create_device(ProtocolAgnosticAddress a);
 ```
+
+## poly::Interface
+
+`poly::Interface` is the other "polymorphic" class template poly provides. Just
+like `poly::Struct`, it stores any type in its Storage and provides the
+properties and methods specified. The main difference to `poly::Struct` is the
+constructability/assignability restrictions. `Struct` instances can only
+be constructed/assigned from instances of types implementing the specified methods and
+properties, and other `Struct` instances featuring the exact same method
+and property list (i.e. same order, same list type) and compatible storages.
+`poly::Interface` is much more flexible. `Interfaces` can be
+constructed/assigned from any `Struct` or `Interface` featuring the same or a
+super set of the specified methods and properties. This does however necessitate
+some additional stack space inside the `Interface` compared to `Struct`.
+
+`poly::Interface` is defined in the following way (with C++20 concept notation):
+
+```cpp
+template <poly::Storage StorageType, 
+          poly::PropertySpecList PropertySpecs,
+          poly::MethodSpecList MethodSpecs>
+class Interface;
+```
+
+### Template Parameters
+
+`StorageType`
+: the [storage](#storage) used to store arbitrary objects.
+
+`PropertySpecs`
+: a [type list](#type-list) of [PropertySpecs](#propertyspecs).
+
+`MethodSpecs`
+: a [type list](#type-list) of [MethodSpecs](#methodspecs).
+
+### Inner typenames
+
+`using property_specs = PropertySpecs;`
+
+`using method_specs = MethodSpecs;`
+
+### Constructors
+
+#### `Interface(const Interface&)`
+
+Copy constructor. Enabled if `std::is_copy_constructible_v<StorageType>` is
+true.
+
+#### `Interface(Interface&&)`
+
+Move constructor
+
+#### `Interface(const Interface<S, OtherPropertySpecs, OtherMethodSpecs>&)`
+
+Copy construct from `Interface` with a different (but compatible) storage type.
+Enabled if `std::is_constructible_v<StorageType,const S&>` is true.
+`OtherPropertySpecs` and `OtherMethodSpecs` must be a super set of
+`propertyspecs` and `method_specs`.
+
+#### `Interface(Interface<S, OtherPropertySpecs, OtherMethodSpecs>&)`
+
+Same as const version. Used for `poly::ref_storage`.
+
+#### `Interface(Interface<S, OtherPropertySpecs, OtherMethodSpecs>&&)`
+
+Move construct from `Interface` with a different (but compatible) storage type.
+Enabled if `std::is_constructible_v<StorageType,S&&>` is true.
+`OtherPropertySpecs` and `OtherMethodSpecs` must be a super set of
+`propertyspecs` and `method_specs`.
+
+#### `Interface(const Struct<S, OtherPropertySpecs, OtherMethodSpecs>&)`
+
+Copy construct from `Struct` with a different (but compatible) storage type.
+Enabled if `std::is_constructible_v<StorageType,const S&>` is true.
+`OtherPropertySpecs` and `OtherMethodSpecs` must be a super set of
+`propertyspecs` and `method_specs`.
+
+#### `Interface(const Struct<S, OtherPropertySpecs, OtherMethodSpecs>&)`
+
+Same as const version. Used for `poly::ref_storage`.
+
+#### `Interface(Struct<S, OtherPropertySpecs, OtherMethodSpecs>&&)`
+
+Move construct from `Struct` with a different (but compatible) storage type.
+Enabled if `std::is_constructible_v<StorageType,S&&>` is true.
+`OtherPropertySpecs` and `OtherMethodSpecs` must be a super set of
+`propertyspecs` and `method_specs`.
+
+### Assignment
+
+Assignment versions of the constructors.
+
+### Member functions
+
+See `poly::Struct`s [member functions](#struct-mem-funcs). Ditto for [injected
+methods](#injected-methods) and [properties](#injected-properties).
 
 ## Configuration
 
@@ -550,7 +651,64 @@ i.e. using `#define POLY_XXX` before including poly headers.
   and set() functions when using the `POLY_PROPERTY` macro to define property names
 - `POLY_DISABLE_DEFAULT_EXTEND`: disables generation of default extend()
   function when using the `POLY_METHOD` macro to define method names
-- `POLY_MAX_METHOD_COUNT`: defines the maximum number of methods an object can have.
-  Defaults to 256. A static assertion will be triggered if this value is too low.
-- `POLY_MAX_PROPERTY_COUNT`: defines the maximum number of properties an object can have.
-  Defaults to 256. A static assertion will be triggered if this value is too low.
+- `POLY_MAX_METHOD_COUNT`: defines the maximum number of methods a
+  `poly::Struct` can have when used in combination with `poly::Interface`.
+  Defaults to 256. A static assertion will be triggered if this value is too
+  low.
+- `POLY_MAX_PROPERTY_COUNT`: defines the maximum number of properties a
+  `poly::Struct` can have when used in combination with `poly::Interface`.
+  Defaults to 256. A static assertion will be triggered if this value is too
+  low.
+- `POLY_HEADER_ONLY`: must be defined if poly is used as a header only library
+- `POLY_COMPILING_LIBRARY`: must be defined when compiling the poly library (but
+  not when using the library)
+
+## Considerations
+
+This library relies on empty base class optimizations (EBCO) to get the smallest
+size possible for the poly::Struct template. If EBCO is applied correctly,
+the size of Struct will always be the size of the storage used plus the
+size of a pointer.
+
+This works well on linux with GCC and clang, as well as GCC on windows. In this
+combination of compiler and platform, name injection will never incur any
+overhead.
+
+On windows, clang and msvc do generate some overhead here (clang aims to be
+compatible with msvc), but only when using name injection with properties.
+Concretely, if exactly one property with name injection is specified in a
+Struct, the size of that Struct specialization will be one pointer
+size greater than an object with a property without name injection. This size
+overhead will stay constant, i.e. stay at the size of one pointer, until the
+number of properties with name injection is greater than the size of a pointer.
+Then the overhead will increase by an additional pointer size.
+
+If this is unclear, some concrete math could help: Let N be the size of one
+pointer, i.e. sizeof(void\*). Let n be the number of properties with name
+injection specified in a Struct. The overhead O in bytes of that
+Struct can be calculated as
+
+O = ceil(n/N) * N
+
+On a 64 bit platform, this would mean an overhead of 8 bytes for the first 8
+properties with name injection added to a Struct, an overhead of 16 bytes
+for n between 9 and 16, and so on.
+
+Name injection with methods should never incur any space overhead.
+
+macOS is not tested, as I do not have a mac.
+
+The overhead of poly::Interface can be calculated similarily. In addition to
+the overhead mentioned above, each property and method, regardless whether it
+is named or not, will occupy one byte (or more, depending on
+`POLY_MAX_METHOD/PROPERTY_COUNT`) of additional space. The size overhead O for an
+Interface with M methods and P properties, of which p are named, can be calculated as follows:
+
+O = (ceil(p/N) + ceil((M + P)/N)) * N
+
+where N = sizeof(void\*).
+
+## Building the library without meson
+
+The step to produce a static/shared library of poly is quite simple.
+Compile `poly/lib.cpp` with `POLY_COMPILING_LIBRARY` defined. Done.

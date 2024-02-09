@@ -33,5 +33,4 @@
 #include "poly/storage/sbo_storage.hpp"
 #include "poly/storage/variant_storage.hpp"
 
-namespace poly {} // namespace poly
 #endif

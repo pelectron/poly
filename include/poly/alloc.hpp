@@ -34,10 +34,13 @@ inline void mem_free(void* p) noexcept { _aligned_free(p); }
 /// allocation failed.
 [[nodiscard]] inline void* mem_alloc(std::size_t size,
                                      std::size_t align) noexcept {
-  return std::aligned_alloc(size, align);
+  using namespace std; // std::aligned_alloc is not available on some platforms
+                       // even in C++17, but should be ::aligned_alloc hsould be
+                       // present.
+  return aligned_alloc(size, align);
 }
 
-/// deallocates memory allocated with me_alloc().
+/// deallocates memory allocated with mem_alloc().
 /// @param p pointer returned by mem_alloc(size,align)
 /// @param align must be the same alignment value passed in to mem_alloc().
 inline void mem_free(void* p) noexcept { std::free(p); }
@@ -76,8 +79,8 @@ T* construct_at(T* p, Args&&... args) {
 /// @returns pointer to T if allocation succeeded, nullptr if allocation failed.
 ///
 template<typename T, typename... Args>
-[[nodiscard]] T*
-allocate(Args&&... args) noexcept(std::is_nothrow_constructible_v<T, Args&&...>) {
+[[nodiscard]] T* allocate(Args&&... args) noexcept(
+    std::is_nothrow_constructible_v<T, Args&&...>) {
   void* mem = mem_alloc(sizeof(T), alignof(T));
   if (!mem)
     return nullptr;

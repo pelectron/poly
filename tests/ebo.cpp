@@ -17,23 +17,28 @@
 #include <cstddef>
 #include <iostream>
 
-template <typename Self, typename T> struct POLY_EMPTY_BASE member {
+template<typename Self, typename T>
+struct POLY_EMPTY_BASE member {
   T get() const { return T{}; }
 };
-template <typename Self> struct POLY_EMPTY_BASE S2 : member<Self, int> {
+template<typename Self>
+struct POLY_EMPTY_BASE S2 : member<Self, int> {
   S2() : member<Self, int>{}, mf{} {}
 
   POLY_NO_UNIQUE_ADDRESS member<Self, float> mf;
 };
-template <typename Self> struct POLY_EMPTY_BASE S3 : S2<Self> {
+template<typename Self>
+struct POLY_EMPTY_BASE S3 : S2<Self> {
   S3() : S2<Self>{}, mf{} {}
 
   POLY_NO_UNIQUE_ADDRESS member<Self, double> mf;
 };
 struct POLY_EMPTY_BASE S4 : S3<S4> {};
 
-template <typename... T> struct S5 : member<S5<T...>, T>... {};
-template <typename... T> struct POLY_EMPTY_BASE S6 : member<S6<T...>, T>... {};
+template<typename... T>
+struct S5 : member<S5<T...>, T>... {};
+template<typename... T>
+struct POLY_EMPTY_BASE S6 : member<S6<T...>, T>... {};
 
 static constexpr size_t size4 = sizeof(S4);
 static constexpr size_t size5 = sizeof(S5<int, float, double>);

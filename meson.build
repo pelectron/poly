@@ -54,19 +54,20 @@ else
 endif
 
 install_headers('include/poly.hpp')
-install_headers('include/poly/always_false.hpp',
+install_headers('include/poly/alloc.hpp',
+                'include/poly/always_false.hpp',
                 'include/poly/config.hpp',
                 'include/poly/function.hpp',
                 'include/poly/fwd.hpp',
                 'include/poly/interface.hpp',
-                'include/poly/interface_method.hpp',
-                'include/poly/interface_property.hpp',
+                'include/poly/interface_method_entry.hpp',
+                'include/poly/interface_property_entry.hpp',
                 'include/poly/method.hpp',
-                'include/poly/object.hpp',
-                'include/poly/object_method.hpp',
-                'include/poly/object_property.hpp',
+                'include/poly/method_table.hpp',
                 'include/poly/property.hpp',
+                'include/poly/property_table.hpp',
                 'include/poly/storage.hpp',
+                'include/poly/struct.hpp',
                 'include/poly/traits.hpp',
                 'include/poly/type_list.hpp',
                 subdir: 'poly')

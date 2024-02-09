@@ -16,9 +16,9 @@
 
 #ifndef INC_PROPERTIES_HPP_
 #define INC_PROPERTIES_HPP_
-
+#include "poly/config.hpp"
 #include "poly/interface.hpp"
-#include "poly/struct.hpp"
 #include "poly/storage.hpp"
+#include "poly/struct.hpp"
 
 #endif /* INC_PROPERTIES_HPP_ */

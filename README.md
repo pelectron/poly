@@ -1,6 +1,6 @@
-poly: external polymorphism (WIP)
+# poly: external polymorphism
 
-This header-only C++17 library provides polymorphism without inheritance. It is inspired
+This (optionally header-only) C++17 library provides polymorphism without inheritance. It is inspired
 by cpp-from-the-sky-downs
 [metaprogrammed polymorphism](https://github.com/google/cpp-from-the-sky-down/tree/master/metaprogrammed_polymorphism)
 (see [John Bandela “Polymorphism != Virtual: Easy, Flexible Runtime Polymorphism
@@ -27,8 +27,7 @@ from third parties, a C library, or built in types, can be extended.
 - external polymorphism with simple implementation
 - easy value semantics with configurable storage mechanisms
   - copyable or move only
-  - local, small buffer optimized, strictly heap allocated (TBD) options
-  - nothrow or throwing move (TBD)
+  - strictly local, small buffer optimized, and strictly heap allocated options
 - optional name "injection" (requires minimal usage of macros)
   - methods and properties can be injected with an actual name, i.e. legal
     C++ identifier, instead of needing to be referenced by template
@@ -40,14 +39,30 @@ from third parties, a C library, or built in types, can be extended.
 
 ## How to include
 
+### Header only version
+
 Get the source code, add the include folder to your toolchains include path, and add
 
-```
+```cpp
+#define POLY_HEADER_ONLY
 #include "poly.hpp"
 ```
 
+`POLY_HEADER_ONLY` can also be defined in your compile arguments instead of
+being hardcoded, usually by specifying `-DPOLY_HEADER_ONLY`.
+
 Alternatively, if building with [meson](https://mesonbuild.com/), this project
 can be added as a subproject.
+
+### Compiled Library
+
+poly can also be compiled as a shared or static library.
+
+For that, compile `poly/lib.cpp` with `POLY_COMPILING_LIBRARY` defined.
+
+### Meson
+
+Simply include poly as a subproject.
 
 ## A small sample
 
@@ -59,7 +74,7 @@ need to store multiple shapes in a container, iterate over them, and draw them.
 A pointer to the base shape must be used, which is probably further wrapped in
 a smart pointer for RAII.
 
-```{cpp}
+```cpp
 // The shape base
 class Shape{
 public:
@@ -135,7 +150,7 @@ BasicShapeContainer get_shapes(){
 - every type to draw MUST inherit from Shape. Third party types cannot be added
   directly. A wrapper would have to be created.
 - value semantics are not given, at least with the BasicShapeContainer.
-- every instance of a shape must be heap allocated, which leads fragmentation and hinders cache locality.
+- every instance of a shape must be heap allocated, which can lead to fragmentation and hinders cache locality.
 - for every draw call, at least two indirections are made
   - 1. following pointer to base
   - 2. following vptr to vtable
@@ -205,13 +220,13 @@ method names into the main type erasure template class provided by them, such
 that working with fully specialized instances of the type erasure template is
 as natural as working with manual type erasure without manually creating a
 wrapper. poly just requires the usage of one macro, and does not cause storage
-overhead for providing name injection (\* see [Considerations](#considerations)).
+overhead for providing name injection (\* see [Considerations](docs.md#considerations)).
 
 Let's take another look at the original sample, but with the requirement of
 adding a small buffer optimization of 16 bytes to our type erased wrapper,
 using poly.
 
-```{cpp}
+```cpp
 #include "poly.hpp"
 // external, third party c library header
 #include "fancy_shape.h" // provides struct FancyShape_t and
@@ -272,15 +287,15 @@ using properties = poly::type_list<>;
 // poly::move_only_sbo_storage can be used to make Drawable move only
 using storage = poly::sbo_storage<16>;
 
-// Drawable can now be used to store any object with extends draw with the
+// Drawable can now be used to store any object which extends draw with the
 // corresponding signature, and stores objects with a size of 16 bytes or less inline.
-// basic_object is the main class this library exports.
-using Drawable = poly::basic_object<storage, properties, methods>;
+// Struct is the main class template this library exports.
+using Drawable = poly::Struct<storage, properties, methods>;
 // or with additional helper macros in (possibly) one line
 using Drawable = 
-    poly::basic_object< poly::sbo_storage<16>, 
-                        POLY_PROPERTIES(), /*same as properties above*/
-                        POLY_METHODS(void(draw, Canvas&, Vec2d) const)/*same as methods above*/>;
+    poly::Struct<poly::sbo_storage<16>, 
+                POLY_PROPERTIES(), /*same as properties above*/
+                POLY_METHODS(void(draw, Canvas&, Vec2d) const)/*same as methods above*/>;
 
 // the shape container as before
 using ShapeContainer = std::vector<Drawable>;
@@ -314,7 +329,7 @@ Adapting storage requirements to have a guarantee to never dynamically allocate
 can be achieved by simply changing the storage type, i.e change the storage
 definition to
 
-```{cpp}
+```cpp
 using storage = poly::local_storage<16>;
 ```
 
@@ -324,7 +339,7 @@ details in a header. A good example could be a communication driver which has a
 standard high level interface but several underlying implementations depending
 on the actual protocol used, i.e. Ethernet, USB, serial etc.
 
-```{cpp}
+```cpp
 // com_driver.hpp
 #include "poly.hpp"
 #include <optional>
@@ -335,7 +350,7 @@ POLY_METHOD(read)
 
 // interface to write and read strings
 using ComDriver = 
-    poly::basic_object< poly::move_only_sbo_storage<32>, 
+    poly::Struct< poly::move_only_sbo_storage<32>, 
                         POLY_PROPERTIES(),
                         POLY_METHODS(void(write, const std::string& msg),
                                      std::string(read))>;
@@ -376,13 +391,13 @@ std::optional<ComDriver> create_com_driver(const std::string& address){
 
 Another feature of poly is the property system. Properties model public member
 variables. Without name injection, they are accessed with get and set member
-function of the poly::basic_object. With name injection, properties are accessed
+function of the poly::Struct. With name injection, properties are accessed
 in the same way as public member variables.
 
 A simple example would be a non owning buffer type, which has a read only
 property "size" and "data", and adapts any container.
 
-```{cpp}
+```cpp
 #include "poly.hpp"
 
 POLY_PROPERTY(size) // alternative: struct size{};
@@ -409,7 +424,7 @@ using storage = poly::ref_storage;
 using properties = POLY_PROPERTIES(const size(size_t), const data(const void*));
 // no methods
 using methods = POLY_METHODS();
-using Buffer = poly::basic_object<storage, properties, methods>;
+using Buffer = poly::Struct<storage, properties, methods>;
 
 Buffer print_half(Buffer b){
     // with name injection
@@ -433,40 +448,9 @@ Buffer print_half(Buffer b){
 As in the previous example, print_half() can be defined in a separate
 translation unit and does not need to be defined in a header file.
 
-## Considerations
+## Documentation
 
-This library relies on empty base class optimizations (EBCO) to get the smallest
-size possible for the poly::basic_object template. If EBCO is applied correctly,
-the size of basic_object will always be the size of the storage used plus the
-size of a pointer.
-
-This works well on linux with GCC and clang, as well as GCC on windows. In this
-combination of compiler and platform, name injection will never incur any
-overhead.
-
-On windows, clang and msvc do generate some overhead here (clang aims to be
-compatible with msvc), but only when using name injection with properties.
-Concretely, if exactly one property with name injection is specified in a
-basic_object, the size of that basic_object specialization will be one pointer
-size greater than an object with a property without name injection. This size
-overhead will stay constant, i.e. stay at the size of one pointer, until the
-number of properties with name injection is greater than the size of a pointer.
-Then the overhead will increase by an additional pointer size.
-
-If this is unclear, some concrete math could help: Let N be the size of one
-pointer, i.e. sizeof(void\*). Let n be the number of properties with name
-injection specified in a basic_object. The overhead O in bytes of that
-basic_object can be calculated as
-
-O = ceil(n/N) * N
-
-On a 64 bit platform, this would mean an overhead of 8 bytes for the first 8
-properties with name injection added to a basic_object, an overhead of 16 bytes
-for n between 9 and 16, and so on.
-
-Name injection with methods should never incur any space overhead.
-
-macOS is not tested, as I do not have a mac.
+See the [provided markdown documentation](docs.md) or the code comments.
 
 ## Testing
 

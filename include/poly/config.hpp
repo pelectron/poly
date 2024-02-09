@@ -109,7 +109,7 @@ inline constexpr std::size_t max_property_count = POLY_MAX_PROPERTY_COUNT;
 #endif
 
 #if defined _WIN32 || defined __CYGWIN__
-#define POLY_ON_WINDOWS 1
+#  define POLY_ON_WINDOWS 1
 inline constexpr bool compiling_for_windows = true;
 #else
 inline constexpr bool compiling_for_windows = false;
@@ -138,7 +138,7 @@ inline constexpr bool header_only = false;
 #    define POLY_INTERNAL
 #  else
 #    if __GNUC__ >= 4
-#      define POLY_API __attribute__((visibility("external")))
+#      define POLY_API __attribute__((visibility("default")))
 #      define POLY_INTERNAL __attribute__((visibility("hidden")))
 #    else
 #      define POLY_API

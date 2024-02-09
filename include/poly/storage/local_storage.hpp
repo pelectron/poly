@@ -16,8 +16,8 @@
 #ifndef POLY_STORAGE_LOCAL_STORAGE_HPP
 #define POLY_STORAGE_LOCAL_STORAGE_HPP
 #include "poly/alloc.hpp"
-#include "poly/fwd.hpp"
 #include "poly/config.hpp"
+#include "poly/fwd.hpp"
 
 #include <utility>
 

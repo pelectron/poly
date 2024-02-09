@@ -16,10 +16,10 @@
 #ifndef POLY_REF_STORAGE_HPP
 #define POLY_REF_STORAGE_HPP
 #include "poly/config.hpp"
-#include "poly/traits.hpp"
 #include "poly/fwd.hpp"
+#include "poly/traits.hpp"
 
-namespace poly{
+namespace poly {
 /// non owing storage. Only contains pointer to object emplaced. Can be
 /// constructed from any non const lvalue reference to any T or Storage type.
 class POLY_API ref_storage final {
@@ -63,5 +63,5 @@ private:
 };
 
 static_assert(poly::traits::is_storage_v<ref_storage>);
-}
+} // namespace poly
 #endif

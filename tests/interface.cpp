@@ -24,14 +24,13 @@ POLY_PROPERTY(property);
 struct property2 {};
 using OBJ =
     poly::Struct<poly::sbo_storage<32>, POLY_PROPERTIES(property(int)),
-                       POLY_METHODS(int(method), int(method2),
-                                    int(method2, int), int(method2, int, float),
-                                    int(method2, int, double),
-                                    void(method2, float))>;
+                 POLY_METHODS(int(method), int(method2), int(method2, int),
+                              int(method2, int, float),
+                              int(method2, int, double), void(method2, float))>;
 
-using SubIf =
-    poly::InterfaceRef<POLY_PROPERTIES(property(int)),
-                    POLY_METHODS(int(method), int(method2, int), int(method2))>;
+using SubIf = poly::InterfaceRef<POLY_PROPERTIES(property(int)),
+                                 POLY_METHODS(int(method), int(method2, int),
+                                              int(method2))>;
 using REF =
     poly::Reference<POLY_PROPERTIES(property(int)),
                     POLY_METHODS(int(method), int(method2), int(method2, int),
@@ -49,7 +48,7 @@ struct X {
 int extend(method, S1&) { return 42; }
 int extend(method2, S1&) { return 54; }
 int extend(method2, S1&, int i) { return i + 1; }
-void extend(method2, S1&, float ) {}
+void extend(method2, S1&, float) {}
 int extend(method2, S1&, int i, float) { return i - 1; }
 int extend(method2, S1&, int i, double) { return i - 2; }
 
@@ -59,7 +58,7 @@ struct S2 {
 int extend(method, S2&) { return 43; }
 int extend(method2, S2&) { return 53; }
 int extend(method2, S2&, int i) { return i + 2; }
-void extend(method2, S2&, float ) { return; }
+void extend(method2, S2&, float) { return; }
 int extend(method2, S2&, int i, float) { return i; }
 int extend(method2, S2&, int i, double) { return i - 1; }
 
@@ -69,7 +68,7 @@ void set(property, S2& s, const int& i) { *(s.p) = i; }
 
 TEMPLATE_TEST_CASE("generic interface test", "[interface]", OBJ) {
   using If = TestType;
-  S1 s1{79,{}};
+  S1 s1{79, {}};
   int i = {77};
   S2 s2{&i};
   If object(s1);

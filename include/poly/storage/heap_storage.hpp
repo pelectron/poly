@@ -17,8 +17,8 @@
 #define POLY_HEAP_STORAGE_HPP
 #include "poly/alloc.hpp"
 #include "poly/config.hpp"
-#include "poly/traits.hpp"
 #include "poly/fwd.hpp"
+#include "poly/traits.hpp"
 #include <cassert>
 
 namespace poly {
