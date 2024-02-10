@@ -54,7 +54,8 @@ namespace detail {
   template<typename Self, POLY_PROP_SPEC PropertySpec>
   struct get_property_injector<Self, PropertySpec, true> {
     using type =
-        property_name_t<PropertySpec>::template injector<Self, PropertySpec>;
+        typename property_name_t<PropertySpec>::template injector<Self,
+                                                                  PropertySpec>;
   };
 
   template<typename Self, POLY_PROP_SPEC PropertySpec>

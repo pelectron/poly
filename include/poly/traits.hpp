@@ -327,7 +327,7 @@ namespace traits {
   };
 
   template<typename PropertySpec>
-  using property_name_t = property_name<PropertySpec>::type;
+  using property_name_t = typename property_name<PropertySpec>::type;
 
   template<typename PropertySpec>
   inline constexpr bool is_nothrow_property_v =

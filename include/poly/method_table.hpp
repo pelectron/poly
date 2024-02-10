@@ -40,7 +40,7 @@ template<typename Self, POLY_METHOD_SPEC Spec>
 struct method_injector_for<
     Self, Spec,
     std::void_t<typename method_name_t<Spec>::template injector<Self, Spec>>> {
-  using type = method_name_t<Spec>::template injector<Self, Spec>;
+  using type = typename method_name_t<Spec>::template injector<Self, Spec>;
 };
 
 /// specialization for overloaded methods
@@ -51,7 +51,7 @@ struct POLY_EMPTY_BASE method_injector_for<
     std::void_t<typename poly::method_name_t<at_t<List<MethodSpecs...>, 0>>::
                     template injector<Self, List<MethodSpecs...>>>> {
   using type =
-      poly::method_name_t<at_t<List<MethodSpecs...>, 0>>::template injector<
+      typename poly::method_name_t<at_t<List<MethodSpecs...>, 0>>::template injector<
           Self, List<MethodSpecs...>>;
 };
 
