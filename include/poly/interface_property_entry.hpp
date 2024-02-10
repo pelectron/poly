@@ -28,7 +28,7 @@ struct interface_property_entry;
 template<typename Name, typename Type>
 struct interface_property_entry<const Name(Type)> {
   template<typename T>
-  bool set(T, const void*, const void*, const Type&) const {
+  void set(T, const void*, const void*, const Type&) const {
     static_assert(always_false<T>);
   }
   Type get(Name, const void* table, const void* t) const {
@@ -46,7 +46,7 @@ struct interface_property_entry<const Name(Type)> {
 template<typename Name, typename Type>
 struct interface_property_entry<const Name(Type) noexcept> {
   template<typename T>
-  bool set(T, const void*, const void*, const Type&) const {
+  void set(T, const void*, const void*, const Type&) const {
     static_assert(always_false<T>);
   }
   Type get(Name, const void* table, const void* t) const noexcept {

@@ -164,8 +164,8 @@ namespace detail {
     }
 
     constexpr variant_storage_impl&
-    operator=(variant_storage_impl&& other) noexcept(
-        nothrow_movable and nothrow_destructible) {
+    operator=(variant_storage_impl&& other) noexcept(nothrow_movable and
+                                                     nothrow_destructible) {
       if (this == &other)
         return *this;
       impl_.destroy(idx);
@@ -175,9 +175,9 @@ namespace detail {
       return *this;
     }
 
-    constexpr variant_storage_impl&
-    operator=(const variant_storage_impl& other) noexcept(
-        nothrow_copyable and nothrow_destructible) {
+    constexpr variant_storage_impl& operator=(
+        const variant_storage_impl& other) noexcept(nothrow_copyable and
+                                                    nothrow_destructible) {
       if (this == &other)
         return *this;
       impl_.destroy(idx);
@@ -242,8 +242,8 @@ namespace detail {
     }
 
     constexpr variant_storage_impl&
-    operator=(variant_storage_impl&& other) noexcept(
-        nothrow_movable and nothrow_destructible) {
+    operator=(variant_storage_impl&& other) noexcept(nothrow_movable and
+                                                     nothrow_destructible) {
       if (this == &other)
         return *this;
       impl_.destroy(idx);
@@ -295,8 +295,28 @@ public:
       detail::variant_storage_impl<(std::is_copy_constructible_v<Ts> && ...),
                                    Ts...>;
   using Base::Base;
-  using Base::operator=;
   using Base::data;
+
+  constexpr variant_storage() noexcept = default;
+  variant_storage(const variant_storage& other) noexcept(
+      (std::is_nothrow_copy_constructible_v<Ts> && ...))
+      : Base(other) {}
+
+  variant_storage(variant_storage&& other) noexcept(
+      (std::is_nothrow_move_constructible_v<Ts> && ...))
+      : Base(std::move(other)) {}
+
+  variant_storage& operator=(const variant_storage& other) noexcept(
+      (std::is_nothrow_copy_constructible_v<Ts> && ...)) {
+    Base::operator=(other);
+    return *this;
+  }
+
+  variant_storage& operator=(variant_storage&& other) noexcept(
+      (std::is_nothrow_move_constructible_v<Ts> && ...)) {
+    Base::operator=(std::move(other));
+    return *this;
+  }
 };
 static_assert(is_storage_v<variant_storage<int, double, float>>);
 
