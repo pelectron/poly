@@ -37,7 +37,7 @@ inline void mem_free(void* p) noexcept { _aligned_free(p); }
   using namespace std; // std::aligned_alloc is not available on some platforms
                        // even in C++17, but should be ::aligned_alloc hsould be
                        // present.
-  return aligned_alloc(size, align);
+  return aligned_alloc(align, size);
 }
 
 /// deallocates memory allocated with mem_alloc().

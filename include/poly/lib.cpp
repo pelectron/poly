@@ -17,7 +17,7 @@ namespace detail {
   [[nodiscard]] POLY_API void* mem_alloc(std::size_t size,
                                          std::size_t align) noexcept {
     using namespace std;
-    return aligned_alloc(size, align);
+    return aligned_alloc(align, size);
   }
 
   POLY_API void mem_free(void* p) noexcept { std::free(p); }
