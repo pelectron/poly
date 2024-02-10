@@ -87,7 +87,6 @@ namespace detail {
 
     template<POLY_STORAGE, POLY_TYPE_LIST, POLY_TYPE_LIST, POLY_TYPE_LIST>
     friend struct poly::detail::interface_impl;
-
   public:
     using method_specs = MethodSpecs;
     using property_specs = L<PropertySpecs...>;

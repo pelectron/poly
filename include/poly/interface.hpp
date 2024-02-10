@@ -33,9 +33,12 @@ namespace detail {
            POLY_METHOD_SPEC... MethodSpecs>
   struct interface_table<L<PropertySpecs...>, L<MethodSpecs...>>
       : public interface_method_entry<MethodSpecs>...,
-        interface_property_entry<PropertySpecs>... {
+        public interface_property_entry<PropertySpecs>... {
   public:
     using interface_method_entry<MethodSpecs>::operator()...;
+    using interface_property_entry<PropertySpecs>::set...;
+    using interface_property_entry<PropertySpecs>::get...;
+
     template<typename MethodName, typename... Args>
     static constexpr bool nothrow_callable =
         noexcept((*std::declval<const method_table<MethodSpecs...>*>())(
@@ -258,20 +261,20 @@ namespace detail {
     }
 
     template<typename Name>
-    bool set(Name,
-             const value_type_for<Name>& value) noexcept(is_nothrow<Name>) {
+    bool set(const value_type_for<Name>& value) noexcept(is_nothrow<Name>) {
       static_assert(
-          contains_v<transform_t<property_specs, traits::property_name_t>,
+          contains_v<transform_t<property_specs, traits::property_name>,
                      Name> &&
               not is_const<Name>,
-          "Name not specified in this interface.");
+          "Property not specified in this interface.");
       return vtbl_.template set<Name>(storage_.data(), value);
     }
 
     template<typename Name>
-    value_type_for<Name> get(Name) noexcept(is_nothrow<Name>) {
-      static_assert(contains_v<property_specs, Name>,
-                    "Name not specified in this interface.");
+    value_type_for<Name> get() noexcept(is_nothrow<Name>) {
+      static_assert(
+          contains_v<transform_t<property_specs, traits::property_name>, Name>,
+          "Property not specified in this interface.");
       return vtbl_.template get<Name>(storage_.data());
     }
 

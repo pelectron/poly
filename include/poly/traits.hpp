@@ -319,10 +319,15 @@ namespace traits {
   inline constexpr bool is_property_spec_v = is_property_spec<T>::value;
 
   template<typename PropertySpec>
-  using property_name_t =
-      std::enable_if_t<is_property_spec_v<PropertySpec>,
-                       std::remove_const_t<typename traits::func_return_type<
-                           PropertySpec>::type>>;
+  struct property_name {
+    using type =
+        std::enable_if_t<is_property_spec_v<PropertySpec>,
+                         std::remove_const_t<typename traits::func_return_type<
+                             PropertySpec>::type>>;
+  };
+
+  template<typename PropertySpec>
+  using property_name_t = property_name<PropertySpec>::type;
 
   template<typename PropertySpec>
   inline constexpr bool is_nothrow_property_v =

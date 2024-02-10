@@ -289,7 +289,8 @@ namespace detail {
   /// table of ptable entries
   template<POLY_PROP_SPEC... PropertySpec>
   struct property_table : public property_entry<PropertySpec>... {
-
+    using property_entry<PropertySpec>::get...;
+    using property_entry<PropertySpec>::set...;
     constexpr property_table() noexcept {}
 
     template<typename T>

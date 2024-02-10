@@ -15,30 +15,37 @@
  */
 #include "poly.hpp"
 #include <catch2/catch_all.hpp>
-#include <iostream>
 
 POLY_METHOD(method);
 POLY_METHOD(method2);
 
 POLY_PROPERTY(property);
 struct property2 {};
+
 using OBJ =
-    poly::Struct<poly::sbo_storage<32>, POLY_PROPERTIES(property(int)),
+    poly::Struct<poly::sbo_storage<32>,
+                 POLY_PROPERTIES(property(int), property2(float)),
                  POLY_METHODS(int(method), int(method2), int(method2, int),
                               int(method2, int, float),
                               int(method2, int, double), void(method2, float))>;
 
-using SubIf = poly::InterfaceRef<POLY_PROPERTIES(property(int)),
-                                 POLY_METHODS(int(method), int(method2, int),
-                                              int(method2))>;
+using Interface =
+    poly::InterfaceRef<POLY_PROPERTIES(property(int), property2(float)),
+                       POLY_METHODS(int(method), int(method2, int),
+                                    int(method2))>;
+using Interface2 =
+    poly::InterfaceRef<POLY_PROPERTIES(property2(float), property(int)),
+                       POLY_METHODS(int(method2), int(method),
+                                    int(method2, int))>;
 using REF =
-    poly::Reference<POLY_PROPERTIES(property(int)),
+    poly::Reference<POLY_PROPERTIES(property(int), property2(float)),
                     POLY_METHODS(int(method), int(method2), int(method2, int),
                                  int(method2, int, float),
                                  int(method2, int, double))>;
 
 struct S1 {
   int property;
+  float property2;
   char data_[128];
 };
 struct X {
@@ -52,8 +59,14 @@ void extend(method2, S1&, float) {}
 int extend(method2, S1&, int i, float) { return i - 1; }
 int extend(method2, S1&, int i, double) { return i - 2; }
 
+float get(property2, const S1& s) { return s.property2; }
+
+void set(property2, S1& s, const float& f) { s.property2 = f; }
+bool check(property2, const S1&, float f) { return f < 100.0f; }
+
 struct S2 {
   int* p;
+  float* f;
 };
 int extend(method, S2&) { return 43; }
 int extend(method2, S2&) { return 53; }
@@ -66,11 +79,15 @@ int get(property, const S2&) { return 5; }
 
 void set(property, S2& s, const int& i) { *(s.p) = i; }
 
+float get(property2, const S2&) { return 5; }
+
+void set(property2, S2& s, const float& f) { *(s.f) = f + 1; }
 TEMPLATE_TEST_CASE("generic interface test", "[interface]", OBJ) {
   using If = TestType;
-  S1 s1{79, {}};
+  S1 s1{79, 9.0f, {}};
   int i = {77};
-  S2 s2{&i};
+  float f = 10.0f;
+  S2 s2{&i, &f};
   If object(s1);
   SECTION("S1::method") {
     REQUIRE(object.template call<method>() == 42);
@@ -97,20 +114,75 @@ TEMPLATE_TEST_CASE("generic interface test", "[interface]", OBJ) {
     REQUIRE(object.property == 55);
     REQUIRE(object.template get<property>() == 55);
 
-    object.template set<property>(22);
+    REQUIRE(object.template set<property>(22));
     REQUIRE(object.template get<property>() == 22);
     REQUIRE(object.property == 22);
+
+    REQUIRE(object.template get<property2>() == 9.0f);
+    REQUIRE(object.template set<property2>(15.0f));
+    REQUIRE(object.template get<property2>() == 15.0f);
+    REQUIRE_FALSE(object.template set<property2>(100.1f));
+    REQUIRE(object.template get<property2>() == 15.0f);
   }
-  SECTION("sub interface S1 methods") {
-    SubIf sub_interface{object};
-    REQUIRE(sub_interface.template call<method>() == 42);
-    REQUIRE(sub_interface.method() == 42);
-    // int()
-    REQUIRE(sub_interface.template call<method2>() == 54);
-    REQUIRE(sub_interface.method2() == 54);
-    // int(int)
-    REQUIRE(sub_interface.template call<method2>(41) == 42);
-    REQUIRE(sub_interface.method2(41) == 42);
+  SECTION("Interface S1 methods") {
+    SECTION("same order of methods") {
+      Interface sub_interface{object};
+      REQUIRE(sub_interface.template call<method>() == 42);
+      REQUIRE(sub_interface.method() == 42);
+      // int()
+      REQUIRE(sub_interface.template call<method2>() == 54);
+      REQUIRE(sub_interface.method2() == 54);
+      // int(int)
+      REQUIRE(sub_interface.template call<method2>(41) == 42);
+      REQUIRE(sub_interface.method2(41) == 42);
+    }
+    SECTION("different order of methods") {
+      Interface2 sub_interface{object};
+      REQUIRE(sub_interface.template call<method>() == 42);
+      REQUIRE(sub_interface.method() == 42);
+      // int()
+      REQUIRE(sub_interface.template call<method2>() == 54);
+      REQUIRE(sub_interface.method2() == 54);
+      // int(int)
+      REQUIRE(sub_interface.template call<method2>(41) == 42);
+      REQUIRE(sub_interface.method2(41) == 42);
+    }
+  }
+  SECTION("Interface S1 property") {
+    SECTION("same order of properties") {
+      Interface sub_interface{object};
+      REQUIRE(sub_interface.property == 79);
+      sub_interface.property = 55;
+      REQUIRE(sub_interface.property == 55);
+      REQUIRE(sub_interface.template get<property>() == 55);
+
+      REQUIRE(sub_interface.template set<property>(22));
+      REQUIRE(sub_interface.template get<property>() == 22);
+      REQUIRE(sub_interface.property == 22);
+
+      REQUIRE(sub_interface.template get<property2>() == 9.0f);
+      REQUIRE(sub_interface.template set<property2>(15.0f));
+      REQUIRE(sub_interface.template get<property2>() == 15.0f);
+      REQUIRE_FALSE(sub_interface.template set<property2>(100.1f));
+      REQUIRE(sub_interface.template get<property2>() == 15.0f);
+    }
+    SECTION("different order of properties") {
+      Interface2 sub_interface{object};
+      REQUIRE(sub_interface.property == 79);
+      sub_interface.property = 55;
+      REQUIRE(sub_interface.property == 55);
+      REQUIRE(sub_interface.template get<property>() == 55);
+
+      REQUIRE(sub_interface.template set<property>(22));
+      REQUIRE(sub_interface.template get<property>() == 22);
+      REQUIRE(sub_interface.property == 22);
+
+      REQUIRE(sub_interface.template get<property2>() == 9.0f);
+      REQUIRE(sub_interface.template set<property2>(15.0f));
+      REQUIRE(sub_interface.template get<property2>() == 15.0f);
+      REQUIRE_FALSE(sub_interface.template set<property2>(100.1f));
+      REQUIRE(sub_interface.template get<property2>() == 15.0f);
+    }
   }
   object = s2;
   SECTION("S2::method") {
@@ -131,18 +203,30 @@ TEMPLATE_TEST_CASE("generic interface test", "[interface]", OBJ) {
     REQUIRE(object.template call<method2>(41, 2.0) == 40);
     REQUIRE(object.method2(41, 2.0) == 40);
   }
-  // SECTION("sub interface S2 methods") {
-  //   SubIf sub_interface{object};
-  //   // int method()
-  //   REQUIRE(sub_interface.template call<method>() == 43);
-  //   REQUIRE(sub_interface.method() == 43);
-  //   // int method2()
-  //   REQUIRE(sub_interface.template call<method2>() == 53);
-  //   REQUIRE(sub_interface.method2() == 53);
-  //   // int method2(int)
-  //   REQUIRE(sub_interface.template call<method2>(41) == 43);
-  //   REQUIRE(sub_interface.method2(41) == 43);
-  // }
+  SECTION("Interface S2 methods") {
+    SECTION("same order of methods") {
+      Interface sub_interface{object};
+      REQUIRE(sub_interface.template call<method>() == 43);
+      REQUIRE(sub_interface.method() == 43);
+      // int()
+      REQUIRE(sub_interface.template call<method2>() == 53);
+      REQUIRE(sub_interface.method2() == 53);
+      // int(int)
+      REQUIRE(sub_interface.template call<method2>(41) == 43);
+      REQUIRE(sub_interface.method2(41) == 43);
+    }
+    SECTION("different order of methods") {
+      Interface2 sub_interface{object};
+      REQUIRE(sub_interface.template call<method>() == 43);
+      REQUIRE(sub_interface.method() == 43);
+      // int()
+      REQUIRE(sub_interface.template call<method2>() == 53);
+      REQUIRE(sub_interface.method2() == 53);
+      // int(int)
+      REQUIRE(sub_interface.template call<method2>(41) == 43);
+      REQUIRE(sub_interface.method2(41) == 43);
+    }
+  }
   SECTION("S2::property") {
     REQUIRE(i == 77);
     REQUIRE(object.property == 5);

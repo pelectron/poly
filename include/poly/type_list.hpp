@@ -117,6 +117,10 @@ namespace detail {
   struct filter<List<Ts...>, Trait> : filter_impl<List<Ts...>, List<>, Trait> {
   };
 
+  static_assert(std::is_same_v<filter<type_list<const char, int, const double>,
+                                      std::is_const>::type,
+                               type_list<const char, const double>>);
+
   /// transform each element in List by applying F on each elment in the List
   ///
   /// Example:
@@ -135,6 +139,10 @@ namespace detail {
   struct transform<List<Ts...>, F> {
     using type = List<typename F<Ts>::type...>;
   };
+  static_assert(
+      std::is_same_v<transform<type_list<const char, int, const double>,
+                               std::remove_const>::type,
+                     type_list<char, int, double>>);
   /// @}
 
   /// concatenate two TypeLists
@@ -146,10 +154,17 @@ namespace detail {
   /// @{
   template<typename List1, typename List2>
   struct concat;
-  template<template<typename...> typename List, typename... Ts, typename... Us>
-  struct concat<List<Ts...>, List<Us...>> {
-    using type = List<Ts..., Us...>;
+  template<template<typename...> typename L1, template<typename...> typename L2,
+           typename... Ts, typename... Us>
+  struct concat<L1<Ts...>, L2<Us...>> {
+    using type = L1<Ts..., Us...>;
   };
+  static_assert(
+      std::is_same_v<type_list<>, concat<type_list<>, type_list<>>::type>);
+
+  static_assert(std::is_same_v<
+                type_list<int, char, double, float>,
+                concat<type_list<int, char>, type_list<double, float>>::type>);
   /// @}
 
   /// check if a TypeList contains a T
@@ -160,6 +175,11 @@ namespace detail {
   struct contains<List<Ts...>, T> {
     static constexpr bool value = (std::is_same_v<T, Ts> or ...);
   };
+
+  static_assert(contains<type_list<int, char, double>, int>::value);
+  static_assert(contains<type_list<int, char, double>, char>::value);
+  static_assert(contains<type_list<int, char, double>, double>::value);
+  static_assert(!contains<type_list<int, char, double>, float>::value);
 
   /// check if a TypeList contains duplicate entries
   /// @{
