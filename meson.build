@@ -93,7 +93,7 @@ if get_option('tests')
                         include_directories:inc,
                         cpp_args:test_args,
                         dependencies:[poly_dep])
-  size_exe = executable('ebo', 
+  ebo_exe = executable('ebo', 
                         sources:[ 'tests/ebo.cpp'],
                         include_directories:inc,
                         cpp_args:test_args,
