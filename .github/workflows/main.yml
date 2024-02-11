@@ -9,7 +9,7 @@ concurrency:
   group: '${{ github.workflow }} @ ${{ github.event.pull_request.head.label || github.head_ref || github.ref }}'
   cancel-in-progress: true
 jobs:
-  testing:
+  testing-ubuntu:
     strategy: 
       matrix:
         cxx: ['clang++', 'g++']
@@ -17,7 +17,33 @@ jobs:
         header_only: ['false','true']
         cpp_std: ['c++17', 'c++20']
         default_library: [static, shared]
-    runs-on: [ubuntu-latest, macos-latest]
+    runs-on: ubuntu-latest
+    env: 
+      CXX:  ${{ matrix.cxx }}
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+      - name: installing ninja
+        run: pip3 install ninja
+      - name: installing meson
+        run: pip3 install meson
+      - name: ninja location
+        run: which ninja
+      - name: setup build directory
+        run: meson setup build -Dtests=true -Dbuildtype=${{ matrix.buildtype }} -Dwarning_level=3 -Dheader_only=${{ matrix.header_only }} -Dcpp_std=${{ matrix.cpp_std }} -Ddefault_library=${{ matrix.default_library }}
+      - name: building
+        run: meson compile -C build
+      - name: testing
+        run: ./build/main
+  testing-macos:
+    strategy: 
+      matrix:
+        cxx: ['clang++', 'g++']
+        buildtype: ['debug', 'release']
+        header_only: ['false','true']
+        cpp_std: ['c++17', 'c++20']
+        default_library: [static, shared]
+    runs-on: macos-latest
     env: 
       CXX:  ${{ matrix.cxx }}
     steps:
