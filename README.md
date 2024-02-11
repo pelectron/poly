@@ -1,4 +1,7 @@
 # poly: external polymorphism
+[![linux tests](https://github.com/pelectron/poly/actions/workflows/test-ubuntu.yml/badge.svg)](https://github.com/pelectron/poly/actions/workflows/test-ubuntu.yml)
+[![windows tests](https://github.com/pelectron/poly/actions/workflows/test-windows.yml/badge.svg)](https://github.com/pelectron/poly/actions/workflows/test-windows.yml)
+[![mac os tests](https://github.com/pelectron/poly/actions/workflows/test-macos.yml/badge.svg)](https://github.com/pelectron/poly/actions/workflows/test-macos.yml)
 
 This (optionally header-only) C++17 library provides polymorphism without inheritance. It is inspired
 by cpp-from-the-sky-downs
