@@ -43,6 +43,9 @@ if get_option('header_only')
   poly_dep = declare_dependency(compile_args: args, 
                                 include_directories: inc)
 else
+  if get_option('default_library') == 'shared'
+    args += '-DPOLY_DYN_LIB'
+  endif
   poly_lib = library('poly',
                       include_directories: inc,
                       sources: ['include/poly/lib.cpp'],

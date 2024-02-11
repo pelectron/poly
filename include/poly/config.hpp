@@ -115,7 +115,7 @@ inline constexpr bool compiling_for_windows = true;
 inline constexpr bool compiling_for_windows = false;
 #endif
 
-#ifndef POLY_HEADER_ONLY
+#if !defined(POLY_HEADER_ONLY) && defined(POLY_DYN_LIB)
 inline constexpr bool header_only = false;
 #  if defined _WIN32 || defined __CYGWIN__
 #    ifdef POLY_COMPILING_LIBRARY
