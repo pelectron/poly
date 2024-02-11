@@ -54,14 +54,21 @@ Get the source code, add the include folder to your toolchains include path, and
 `POLY_HEADER_ONLY` can also be defined in your compile arguments instead of
 being hardcoded, usually by specifying `-DPOLY_HEADER_ONLY`.
 
-Alternatively, if building with [meson](https://mesonbuild.com/), this project
-can be added as a subproject.
-
 ### Compiled Library
 
 poly can also be compiled as a shared or static library.
 
 For that, compile `poly/lib.cpp` with `POLY_COMPILING_LIBRARY` defined.
+`POLY_DYN_LIB` must be defined when compiling a shared library version of poly.
+
+`POLY_COMPILING_LIBRARY` must only be defined when compiling the library, but
+not when using it. `POLY_DYN_LIB` must be defined both when compiling and using
+the shared library. 
+
+### Meson
+
+Alternatively, if building with [meson](https://mesonbuild.com/), this project
+can be added as a subproject.
 
 ## A small sample
 
