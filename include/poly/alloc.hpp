@@ -8,6 +8,8 @@
 
 #if defined(POLY_ON_WINDOWS) && defined(POLY_HEADER_ONLY)
 #  include <malloc.h>
+#elif defined(POLY_HEADER_ONLY)
+#include <cstdlib>
 #endif
 
 namespace poly::detail {
