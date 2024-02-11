@@ -50,9 +50,8 @@ struct POLY_EMPTY_BASE method_injector_for<
     Self, List<MethodSpecs...>,
     std::void_t<typename poly::method_name_t<at_t<List<MethodSpecs...>, 0>>::
                     template injector<Self, List<MethodSpecs...>>>> {
-  using type =
-      typename poly::method_name_t<at_t<List<MethodSpecs...>, 0>>::template injector<
-          Self, List<MethodSpecs...>>;
+  using type = typename poly::method_name_t<at_t<List<MethodSpecs...>, 0>>::
+      template injector<Self, List<MethodSpecs...>>;
 };
 
 template<typename Self, typename SpecOrList>

@@ -164,8 +164,8 @@ namespace detail {
     }
 
     constexpr variant_storage_impl&
-    operator=(variant_storage_impl&& other) noexcept(nothrow_movable and
-                                                     nothrow_destructible) {
+    operator=(variant_storage_impl&& other) noexcept(
+        nothrow_movable and nothrow_destructible) {
       if (this == &other)
         return *this;
       impl_.destroy(idx);
@@ -175,9 +175,9 @@ namespace detail {
       return *this;
     }
 
-    constexpr variant_storage_impl& operator=(
-        const variant_storage_impl& other) noexcept(nothrow_copyable and
-                                                    nothrow_destructible) {
+    constexpr variant_storage_impl&
+    operator=(const variant_storage_impl& other) noexcept(
+        nothrow_copyable and nothrow_destructible) {
       if (this == &other)
         return *this;
       impl_.destroy(idx);
@@ -242,8 +242,8 @@ namespace detail {
     }
 
     constexpr variant_storage_impl&
-    operator=(variant_storage_impl&& other) noexcept(nothrow_movable and
-                                                     nothrow_destructible) {
+    operator=(variant_storage_impl&& other) noexcept(
+        nothrow_movable and nothrow_destructible) {
       if (this == &other)
         return *this;
       impl_.destroy(idx);
