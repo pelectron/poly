@@ -18,6 +18,7 @@
 #include "poly/method.hpp"
 #include "poly/traits.hpp"
 
+#include <memory>
 #include <cassert>
 namespace poly::detail {
 template<typename Self, typename MethodSpecOrListOfSpecs>
