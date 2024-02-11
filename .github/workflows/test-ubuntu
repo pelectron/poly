@@ -1,0 +1,20 @@
+on:
+  push:
+    branches:
+      - main
+jobs:
+  test-linux:
+    strategy: 
+      matrix:
+        buildtype: ['debug', 'release']
+        header_only: ['false','true']
+        cpp_std: ['c++17', 'c++20']
+        default_library: [static, shared]
+    uses: ./.github/workflows/build-tests.yml
+    with:
+      os: ubuntu-latest
+      buildtype: ${{ matrix.buildtype }}
+      header_only: ${{ matrix.header_only }}      
+      cpp_std: ${{ matrix.cpp_std }}   
+      default_library: ${{ matrix.default_library }}
+      call: ./build/main
