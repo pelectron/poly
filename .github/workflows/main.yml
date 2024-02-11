@@ -46,7 +46,6 @@ jobs:
     steps:      
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
-      - uses: crazy-max/ghaction-chocolatey@v3
       - name: installing ninja
         run: choco install ninja
       - name: installing meson
