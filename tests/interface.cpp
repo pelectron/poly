@@ -79,7 +79,7 @@ int get(property, const S2&) { return 5; }
 
 void set(property, S2& s, const int& i) { *(s.p) = i; }
 
-float get(property2, const S2&s) { return *(s.f); }
+float get(property2, const S2& s) { return *(s.f); }
 
 void set(property2, S2& s, const float& f) { *(s.f) = f + 1; }
 TEMPLATE_TEST_CASE("generic interface test", "[interface]", OBJ) {
