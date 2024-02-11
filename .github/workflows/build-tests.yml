@@ -18,6 +18,9 @@ on:
       default_library:
         required: true
         type: string
+      call:
+        required: true
+        type: string
 jobs:
   test:
     runs-on: ${{ inputs.os }}
@@ -34,3 +37,5 @@ jobs:
         run: meson setup build -Dtests=true -Dbuildtype=${{ inputs.buildtype }} -Dwarning_level=3 -Dheader_only=${{ inputs.header_only }} -Dcpp_std=${{ inputs.cpp_std }} -Ddefault_library=${{ inputs.default_library }}
       - name: building
         run: meson compile -C build
+      - name: running tests
+        run: ${{ inputs.call }}
