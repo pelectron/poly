@@ -1,0 +1,36 @@
+name: build tests
+
+on:
+  workflow_call:
+    inputs:
+      os:
+        required: true
+        type: string
+      buildtype:
+        required: true
+        type: string
+      header_only:
+        required: true
+        type: string
+      cpp_std:
+        required: true
+        type: string
+      default_library:
+        required: true
+        type: string
+jobs:
+  test:
+    runs-on: ${{ inputs.os }}
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+      - name: installing ninja
+        run: pip3 install ninja
+      - name: installing meson
+        run: pip3 install meson
+      - name: ninja location
+        run: which ninja
+      - name: setup build directory
+        run: meson setup build -Dtests=true -Dbuildtype=${{ inputs.buildtype }} -Dwarning_level=3 -Dheader_only=${{ inputs.header_only }} -Dcpp_std=${{ inputs.cpp_std }} -Ddefault_library=${{ inputs.default_library }}
+      - name: building
+        run: meson compile -C build
