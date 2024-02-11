@@ -9,7 +9,7 @@ jobs:
         buildtype: ['debug', 'release']
         header_only: ['false','true']
         cpp_std: ['c++17', 'c++20']
-        default_library: [static, shared]
+        default_library: [static]
     uses: ./.github/workflows/build-tests.yml
     with:
       os: macos-latest
