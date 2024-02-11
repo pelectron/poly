@@ -40,7 +40,7 @@ public:
 
   template<typename T>
   constexpr T* emplace(T& t) noexcept {
-    ref_ = std::addressof(t);
+    ref_ = &t;
     return &t;
   }
 
@@ -48,12 +48,13 @@ public:
 
   constexpr const void* data() const noexcept { return ref_; }
 
+private:
+
   constexpr void reset() noexcept { ref_ = nullptr; }
 
-private:
   template<typename T>
   constexpr ref_storage(T& t, std::false_type /*is_storage*/)
-      : ref_(std::addressof(t)) {}
+      : ref_(&t) {}
 
   template<POLY_STORAGE Storage>
   constexpr ref_storage(Storage& s, std::true_type /*is_storage*/)

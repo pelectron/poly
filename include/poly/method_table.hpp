@@ -18,7 +18,6 @@
 #include "poly/method.hpp"
 #include "poly/traits.hpp"
 
-#include <memory>
 #include <cassert>
 namespace poly::detail {
 template<typename Self, typename MethodSpecOrListOfSpecs>
@@ -222,8 +221,7 @@ struct method_entry<Ret(Method, Args...)> {
 
   template<typename T>
   constexpr method_entry(poly::traits::Id<T>) noexcept
-      : func(std::addressof(
-            trampoline<Ret(Method, Args...)>::template jump<T>)) {}
+      : func(&trampoline<Ret(Method, Args...)>::template jump<T>) {}
 
   constexpr method_entry() noexcept {}
 
@@ -241,8 +239,7 @@ struct method_entry<Ret(Method, Args...) const> {
 
   template<typename T>
   constexpr method_entry(poly::traits::Id<T>) noexcept
-      : func(std::addressof(
-            trampoline<Ret(Method, Args...) const>::template jump<T>)) {}
+      : func(&trampoline<Ret(Method, Args...) const>::template jump<T>) {}
 
   constexpr method_entry() noexcept {}
 
@@ -260,8 +257,7 @@ struct method_entry<Ret(Method, Args...) noexcept> {
 
   template<typename T>
   constexpr method_entry(poly::traits::Id<T>) noexcept
-      : func(std::addressof(
-            trampoline<Ret(Method, Args...)>::template jump<T>)) {}
+      : func(&trampoline<Ret(Method, Args...)>::template jump<T>) {}
 
   constexpr method_entry() noexcept {}
 
@@ -279,8 +275,7 @@ struct method_entry<Ret(Method, Args...) const noexcept> {
 
   template<typename T>
   constexpr method_entry(poly::traits::Id<T>) noexcept
-      : func(std::addressof(
-            trampoline<Ret(Method, Args...) const>::template jump<T>)) {}
+      : func(trampoline<Ret(Method, Args...) const>::template jump<T>) {}
 
   constexpr method_entry() noexcept {}
 

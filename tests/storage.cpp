@@ -98,7 +98,7 @@ TEST_CASE("ref_storage", "[storage]") {
     s.emplace(a);
     REQUIRE(count == 1);
     REQUIRE(s.data() == &a);
-    s.reset();
+    s = poly::ref_storage{};
     REQUIRE(s.data() == nullptr);
   }
   REQUIRE(count == 1);

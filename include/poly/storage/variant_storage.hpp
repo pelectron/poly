@@ -74,8 +74,7 @@ namespace detail {
                     "The type T must be in the list of types the "
                     "variant storage is defined with.");
       if constexpr (std::is_same_v<T, value_type>) {
-        return construct_at(std::addressof(value_),
-                            std::forward<Args>(args)...);
+        return construct_at(&value_, std::forward<Args>(args)...);
       } else {
         if constexpr (is_last) {
           static_assert(always_false<T>, "Library bug!");
@@ -87,7 +86,7 @@ namespace detail {
 
     constexpr void copy(const variant_impl& other, std::size_t idx) {
       if (I == idx) {
-        construct_at(std::addressof(value_), other.value_);
+        construct_at(&value_, other.value_);
       } else {
         if constexpr (not is_last)
           rest_.copy(other.rest_, idx);
@@ -96,7 +95,7 @@ namespace detail {
 
     constexpr void move(variant_impl&& other, std::size_t idx) {
       if (I == idx) {
-        construct_at(std::addressof(value_), std::move(other.value_));
+        construct_at(&value_, std::move(other.value_));
       } else {
         if constexpr (not is_last)
           rest_.move(std::move(other.rest_), idx);
@@ -105,7 +104,7 @@ namespace detail {
 
     constexpr void destroy(std::size_t idx) {
       if (I == idx) {
-        std::destroy_at(std::addressof(value_));
+        std::destroy_at(&value_);
       } else {
         if constexpr (not is_last)
           rest_.destroy(idx);
@@ -164,8 +163,8 @@ namespace detail {
     }
 
     constexpr variant_storage_impl&
-    operator=(variant_storage_impl&& other) noexcept(
-        nothrow_movable and nothrow_destructible) {
+    operator=(variant_storage_impl&& other) noexcept(nothrow_movable and
+                                                     nothrow_destructible) {
       if (this == &other)
         return *this;
       impl_.destroy(idx);
@@ -175,9 +174,9 @@ namespace detail {
       return *this;
     }
 
-    constexpr variant_storage_impl&
-    operator=(const variant_storage_impl& other) noexcept(
-        nothrow_copyable and nothrow_destructible) {
+    constexpr variant_storage_impl& operator=(
+        const variant_storage_impl& other) noexcept(nothrow_copyable and
+                                                    nothrow_destructible) {
       if (this == &other)
         return *this;
       impl_.destroy(idx);
@@ -242,8 +241,8 @@ namespace detail {
     }
 
     constexpr variant_storage_impl&
-    operator=(variant_storage_impl&& other) noexcept(
-        nothrow_movable and nothrow_destructible) {
+    operator=(variant_storage_impl&& other) noexcept(nothrow_movable and
+                                                     nothrow_destructible) {
       if (this == &other)
         return *this;
       impl_.destroy(idx);

@@ -150,11 +150,11 @@ namespace detail {
       static_assert(alignof(T) <= Alignment,
                     "The alignment of T is to large to fit into this");
       reset();
-      T* ret = construct_at(reinterpret_cast<T*>(std::addressof(buffer_)),
+      T* ret = construct_at(reinterpret_cast<T*>(buffer_),
                             std::forward<Args>(args)...);
       if (!ret)
         return nullptr;
-      vtbl_ = std::addressof(resource_table_for<Copyable, T>);
+      vtbl_ = &resource_table_for<Copyable, T>;
       return ret;
     }
 
@@ -172,20 +172,19 @@ namespace detail {
     /// destroy the contained object
     constexpr void reset() {
       if (vtbl_) {
-        vtbl_->destroy(std::addressof(buffer_));
+        vtbl_->destroy(buffer_);
         vtbl_ = nullptr;
       }
     }
 
     template<typename T>
     constexpr T* as() noexcept {
-      return static_cast<T*>(static_cast<void*>(std::addressof(buffer_)));
+      return static_cast<T*>(static_cast<void*>(buffer_));
     }
 
     template<typename T>
     constexpr const T* as() const noexcept {
-      return static_cast<const T*>(
-          static_cast<const void*>(std::addressof(buffer_)));
+      return static_cast<const T*>(static_cast<const void*>(buffer_));
     }
 
     /// move implementation
@@ -206,7 +205,7 @@ namespace detail {
       reset();
       if (other.vtbl_ == nullptr)
         return *this;
-      other.vtbl_->move(std::addressof(buffer_), std::addressof(other.buffer_));
+      other.vtbl_->move(buffer_, other.buffer_);
       vtbl_ = other.vtbl_;
       other.reset();
       return *this;
@@ -231,7 +230,7 @@ namespace detail {
       reset();
       if (other.vtbl_ == nullptr)
         return *this;
-      other.vtbl_->copy(std::addressof(buffer_), std::addressof(other.buffer_));
+      other.vtbl_->copy(buffer_, other.buffer_);
       vtbl_ = other.vtbl_;
       return *this;
     }

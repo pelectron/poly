@@ -206,7 +206,7 @@ namespace detail {
       reset();
       T* ret = nullptr;
       if constexpr (sizeof(T) <= Size and alignof(T) <= Alignment) {
-        ret = construct_at(reinterpret_cast<T*>(std::addressof(buffer.buffer)),
+        ret = construct_at(reinterpret_cast<T*>(buffer.buffer),
                            std::forward<Args>(args)...);
         if (!ret)
           return nullptr;
@@ -216,7 +216,7 @@ namespace detail {
           return nullptr;
         buffer.heap = ret;
       }
-      vtbl_ = std::addressof(sbo_table_for<Copyable, T>);
+      vtbl_ = &sbo_table_for<Copyable, T>;
       return ret;
     }
 
@@ -238,7 +238,7 @@ namespace detail {
       if (vtbl_->size > Size or vtbl_->align > Alignment)
         vtbl_->heap_destroy(buffer.heap);
       else
-        vtbl_->destroy(std::addressof(buffer.buffer));
+        vtbl_->destroy(buffer.buffer);
       vtbl_ = nullptr;
     }
 
@@ -259,11 +259,11 @@ namespace detail {
         // others object fits into this small buffer
         if (other.is_heap_allocated()) {
           // move others heap object this buffer
-          other.vtbl_->move(std::addressof(buffer.buffer), other.buffer.heap);
+          other.vtbl_->move(buffer.buffer, other.buffer.heap);
         } else {
           // move others buffer object into this buffer
-          other.vtbl_->move(std::addressof(buffer.buffer),
-                            std::addressof(other.buffer.buffer));
+          other.vtbl_->move(buffer.buffer,
+                            other.buffer.buffer);
         }
         // copy others vtable before others reset
         // others vtable is not touched to ensure proper destruction
@@ -281,7 +281,7 @@ namespace detail {
           // move object from others bufffer into heap, copy vtable.
           // others vtable is not touched to ensure proper destruction
           // of others object in buffer
-          buffer.heap = other.vtbl_->heap_move(std::addressof(other.buffer));
+          buffer.heap = other.vtbl_->heap_move(other.buffer.buffer);
           vtbl_ = other.vtbl_;
         }
       }
@@ -307,11 +307,11 @@ namespace detail {
         // others object fits into this small buffer
         if (other.is_heap_allocated()) {
           // copy others heap object into this buffer
-          other.vtbl_->copy(std::addressof(buffer.buffer), other.buffer.heap);
+          other.vtbl_->copy(buffer.buffer, other.buffer.heap);
         } else {
           // copy others buffer object into this buffer
-          other.vtbl_->copy(std::addressof(buffer.buffer),
-                            std::addressof(other.buffer.buffer));
+          other.vtbl_->copy(buffer.buffer,
+                            other.buffer.buffer);
         }
       } else {
         // others object does not fit into small buffer
@@ -320,7 +320,7 @@ namespace detail {
           buffer.heap = other.vtbl_->heap_copy(other.buffer.heap);
         } else {
           // heap copy
-          buffer.heap = other.vtbl_->heap_copy(std::addressof(other.buffer));
+          buffer.heap = other.vtbl_->heap_copy(other.buffer.buffer);
         }
       }
       vtbl_ = other.vtbl_;
@@ -341,7 +341,7 @@ namespace detail {
     constexpr T* as() noexcept {
       if (vtbl_->size <= Size and vtbl_->align <= Alignment)
         return static_cast<T*>(
-            static_cast<void*>(std::addressof(buffer.buffer)));
+            static_cast<void*>(buffer.buffer));
       return static_cast<T*>(buffer.heap);
     }
 
@@ -349,7 +349,7 @@ namespace detail {
     constexpr const T* as() const noexcept {
       if (vtbl_->size <= Size and vtbl_->align <= Alignment)
         return static_cast<const T*>(
-            static_cast<const void*>(std::addressof(buffer.buffer)));
+            static_cast<const void*>(buffer.buffer));
       return static_cast<const T*>(buffer.heap);
     }
 
