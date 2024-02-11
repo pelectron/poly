@@ -55,5 +55,5 @@ jobs:
       - name: building
         run: meson compile -C build
       - name: testing
-        run: cd build && main.exe
+        run: .\build\main.exe
   
