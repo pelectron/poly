@@ -79,7 +79,7 @@ int get(property, const S2&) { return 5; }
 
 void set(property, S2& s, const int& i) { *(s.p) = i; }
 
-float get(property2, const S2&) { return 5; }
+float get(property2, const S2&s) { return *(s.f); }
 
 void set(property2, S2& s, const float& f) { *(s.f) = f + 1; }
 TEMPLATE_TEST_CASE("generic interface test", "[interface]", OBJ) {
@@ -225,6 +225,48 @@ TEMPLATE_TEST_CASE("generic interface test", "[interface]", OBJ) {
       // int(int)
       REQUIRE(sub_interface.template call<method2>(41) == 43);
       REQUIRE(sub_interface.method2(41) == 43);
+    }
+  }
+  SECTION("Interface S2 property") {
+    SECTION("same order of properties") {
+      Interface sub_interface{object};
+      REQUIRE(sub_interface.property == 5);
+      sub_interface.property = 55;
+      REQUIRE(*s2.p == 55);
+      REQUIRE(sub_interface.property == 5);
+      REQUIRE(sub_interface.template get<property>() == 5);
+      REQUIRE(*s2.p == 55);
+
+      REQUIRE(sub_interface.template set<property>(22));
+      REQUIRE(*s2.p == 22);
+      REQUIRE(sub_interface.template get<property>() == 5);
+      REQUIRE(sub_interface.property == 5);
+
+      REQUIRE(sub_interface.template get<property2>() == 10.0f);
+      REQUIRE(sub_interface.template set<property2>(15.0f));
+      REQUIRE(sub_interface.template get<property2>() == 16.0f);
+      REQUIRE(sub_interface.template set<property2>(100.1f));
+      REQUIRE(sub_interface.template get<property2>() == 101.1f);
+    }
+    SECTION("different order of properties") {
+      Interface2 sub_interface{object};
+      REQUIRE(sub_interface.property == 5);
+      sub_interface.property = 55;
+      REQUIRE(*s2.p == 55);
+      REQUIRE(sub_interface.property == 5);
+      REQUIRE(sub_interface.template get<property>() == 5);
+      REQUIRE(*s2.p == 55);
+
+      REQUIRE(sub_interface.template set<property>(22));
+      REQUIRE(*s2.p == 22);
+      REQUIRE(sub_interface.template get<property>() == 5);
+      REQUIRE(sub_interface.property == 5);
+
+      REQUIRE(sub_interface.template get<property2>() == 10.0f);
+      REQUIRE(sub_interface.template set<property2>(15.0f));
+      REQUIRE(sub_interface.template get<property2>() == 16.0f);
+      REQUIRE(sub_interface.template set<property2>(100.1f));
+      REQUIRE(sub_interface.template get<property2>() == 101.1f);
     }
   }
   SECTION("S2::property") {
