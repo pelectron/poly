@@ -46,7 +46,6 @@ else
   poly_lib = library('poly',
                       include_directories: inc,
                       sources: ['include/poly/lib.cpp'],
-                      gnu_symbol_visibility: 'hidden',
                       cpp_args: args + '-DPOLY_COMPILING_LIBRARY')
   poly_dep = declare_dependency(compile_args: args, 
                                 include_directories: inc,
