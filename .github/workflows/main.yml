@@ -47,11 +47,9 @@ jobs:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
       - name: installing ninja
-        run: choco install ninja
+        run: pip install ninja
       - name: installing meson
-        run: choco install meson
-      - name: ninja location
-        run: which ninja
+        run: pip install meson
       - name: setup build directory
         run: meson setup build -Dtests=true -Dbuildtype=${{ matrix.buildtype }} -Dwarning_level=3 -Dheader_only=${{ matrix.header_only }} -Dcpp_std=${{ matrix.cpp_std }} -Ddefault_library=${{ matrix.default_library }}
       - name: building
