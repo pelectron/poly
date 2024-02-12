@@ -292,7 +292,7 @@ namespace detail {
   struct property_table : public property_entry<PropertySpec>... {
     using property_entry<PropertySpec>::get...;
     using property_entry<PropertySpec>::set...;
-    constexpr property_table() noexcept {}
+    constexpr property_table() noexcept = default;
 
     template<typename T>
     constexpr property_table(poly::traits::Id<T> id) noexcept

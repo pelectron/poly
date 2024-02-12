@@ -229,6 +229,7 @@ namespace detail {
                     L<OverLoads...>>&&
             other) noexcept(std::is_nothrow_assignable_v<StorageType,
                                                          OtherStorage&&>) {
+      vtbl_ = nullptr;
       storage_ = std::move(other.storage_);
       vtbl_ = std::exchange(other.vtbl_, nullptr);
       return *this;
@@ -240,6 +241,7 @@ namespace detail {
     operator=(T&& t) noexcept(detail::nothrow_emplaceable_v<
                               StorageType, std::decay_t<T>,
                               decltype(std::forward<T>(std::declval<T&&>()))>) {
+      vtbl_ = nullptr;
       storage_.template emplace<std::decay_t<T>>(std::forward<T>(t));
       vtbl_ = &detail::struct_table_for<std::decay_t<T>,
                                         property_specs,

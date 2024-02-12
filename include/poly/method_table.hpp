@@ -226,6 +226,7 @@ struct method_entry<Ret(Method, Args...)> {
   constexpr method_entry() noexcept {}
 
   constexpr Ret operator()(Method m, void* t, Args... args) const {
+    assert(func);
     assert(t);
     return (*func)(m, t, std::forward<Args>(args)...);
   }
@@ -244,6 +245,7 @@ struct method_entry<Ret(Method, Args...) const> {
   constexpr method_entry() noexcept {}
 
   constexpr Ret operator()(Method m, const void* t, Args... args) const {
+    assert(func);
     assert(t);
     return *func(m, t, std::forward<Args>(args)...);
   }
@@ -262,6 +264,7 @@ struct method_entry<Ret(Method, Args...) noexcept> {
   constexpr method_entry() noexcept {}
 
   constexpr Ret operator()(Method m, void* t, Args... args) const noexcept {
+    assert(func);
     assert(t);
     return (*func)(m, t, std::forward<Args>(args)...);
   }
@@ -281,6 +284,7 @@ struct method_entry<Ret(Method, Args...) const noexcept> {
 
   constexpr Ret operator()(Method m, const void* t,
                            Args... args) const noexcept {
+    assert(func);
     assert(t);
     return *func(m, t, std::forward<Args>(args)...);
   }
