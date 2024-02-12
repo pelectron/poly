@@ -17,4 +17,4 @@ jobs:
       header_only: ${{ matrix.header_only }}      
       cpp_std: ${{ matrix.cpp_std }}   
       default_library: ${{ matrix.default_library }}
-      call: ./build/main
+      call: ./build/main *storage
