@@ -32,15 +32,34 @@ public:
 
   constexpr ref_storage(const ref_storage&) noexcept = default;
 
-  constexpr ref_storage(ref_storage&&) noexcept = default;
+  constexpr ref_storage(ref_storage&& other) noexcept
+      : ref_(std::exchange(other.ref_, nullptr)) {}
 
   constexpr ref_storage& operator=(const ref_storage&) noexcept = default;
 
-  constexpr ref_storage& operator=(ref_storage&&) noexcept = default;
+  constexpr ref_storage& operator=(ref_storage&& other) noexcept {
+    ref_ = std::exchange(other.ref_, nullptr);
+    return *this;
+  }
+
+  template<typename Storage, typename = std::enable_if_t<
+                                 not std::is_same_v<Storage, ref_storage>>>
+  constexpr ref_storage& operator=(Storage& s) noexcept {
+    static_assert(
+        poly::is_storage_v<Storage>,
+        "The type you are trying to assign to ref_storage does not satisfy the "
+        "Storage concept. Use ref_storage::emplace<T>().");
+    ref_ = s.data();
+    return *this;
+  }
 
   template<typename T>
   constexpr T* emplace(T& t) noexcept {
-    ref_ = &t;
+    if constexpr (poly::is_storage_v<T>) {
+      ref_ = t.data();
+    } else {
+      ref_ = &t;
+    }
     return &t;
   }
 
@@ -49,12 +68,10 @@ public:
   constexpr const void* data() const noexcept { return ref_; }
 
 private:
-
   constexpr void reset() noexcept { ref_ = nullptr; }
 
   template<typename T>
-  constexpr ref_storage(T& t, std::false_type /*is_storage*/)
-      : ref_(&t) {}
+  constexpr ref_storage(T& t, std::false_type /*is_storage*/) : ref_(&t) {}
 
   template<POLY_STORAGE Storage>
   constexpr ref_storage(Storage& s, std::true_type /*is_storage*/)

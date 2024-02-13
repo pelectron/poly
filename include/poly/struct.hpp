@@ -216,6 +216,7 @@ namespace detail {
                           L<OverLoads...>>&
             other) noexcept(std::is_nothrow_assignable_v<StorageType,
                                                          const OtherStorage&>) {
+      vtbl_ = nullptr;
       storage_ = other.storage_;
       vtbl_ = other.vtbl_;
       return *this;

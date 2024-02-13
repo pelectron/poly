@@ -1131,3 +1131,54 @@ TEMPLATE_TEST_CASE("move sbo storage of different sizes", "[storage]", A, B, C,
     }
   }
 }
+using M1 = poly::type_list<poly::move_only_heap_storage, Tracker<8, 8>>;
+using M2 = poly::type_list<poly::move_only_heap_storage, Tracker<16, 8>>;
+using M3 = poly::type_list<poly::move_only_heap_storage, Tracker<8, 16>>;
+using M4 = poly::type_list<poly::heap_storage, Tracker<8, 8>>;
+using M5 = poly::type_list<poly::heap_storage, Tracker<16, 8>>;
+using M6 = poly::type_list<poly::heap_storage, Tracker<8, 16>>;
+using M7 = poly::type_list<poly::move_only_sbo_storage<32, 8>, Tracker<8, 8>>;
+using M8 = poly::type_list<poly::move_only_sbo_storage<32, 8>, Tracker<16, 8>>;
+using M9 = poly::type_list<poly::move_only_sbo_storage<32, 8>, Tracker<8, 16>>;
+using M10 = poly::type_list<poly::sbo_storage<32, 8>, Tracker<8, 8>>;
+using M11 = poly::type_list<poly::sbo_storage<32, 8>, Tracker<16, 8>>;
+using M12 = poly::type_list<poly::sbo_storage<32, 8>, Tracker<8, 16>>;
+using M13 =
+    poly::type_list<poly::move_only_local_storage<32, 16>, Tracker<8, 8>>;
+using M14 =
+    poly::type_list<poly::move_only_local_storage<32, 16>, Tracker<16, 8>>;
+using M15 =
+    poly::type_list<poly::move_only_local_storage<32, 16>, Tracker<8, 16>>;
+using M16 = poly::type_list<poly::local_storage<32, 16>, Tracker<8, 8>>;
+using M17 = poly::type_list<poly::local_storage<32, 16>, Tracker<16, 8>>;
+using M18 = poly::type_list<poly::local_storage<32, 16>, Tracker<8, 16>>;
+
+TEMPLATE_TEST_CASE("ref_storage assignment", "[storage]", M1, M2, M3, M4, M5,
+                   M6, M7, M8, M9, M10, M11, M12, M13, M14, M15, M16, M17,
+                   M18) {
+  using Storage = poly::at_t<TestType, 0>;
+  using Object = poly::at_t<TestType, 1>;
+  poly::ref_storage ref;
+  int count = 0;
+  Storage s;
+  void* addr = s.template emplace<Object>(count);
+  REQUIRE(count == 1);
+  ref = s;
+  REQUIRE(count == 1);
+  REQUIRE(ref.data() == addr);
+  Storage s2;
+  addr = s2.template emplace<Object>(count);
+  REQUIRE(count == 2);
+  ref.emplace(s2);
+  REQUIRE(count == 2);
+  REQUIRE(ref.data() == addr);
+  ref = poly::ref_storage();
+  REQUIRE(count == 2);
+  REQUIRE(ref.data() == nullptr);
+
+  Object obj(count);
+  addr = &obj;
+  REQUIRE(count == 3);
+  REQUIRE(ref.template emplace<Object>(obj) == addr);
+  REQUIRE(count == 3);
+}
