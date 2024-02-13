@@ -32,13 +32,15 @@ public:
 
   constexpr ref_storage(const ref_storage&) noexcept = default;
 
-  constexpr ref_storage(ref_storage&& other) noexcept
-      : ref_(std::exchange(other.ref_, nullptr)) {}
+  constexpr ref_storage(ref_storage&& other) noexcept : ref_(other.ref_) {
+    other.ref_ = nullptr;
+  }
 
   constexpr ref_storage& operator=(const ref_storage&) noexcept = default;
 
   constexpr ref_storage& operator=(ref_storage&& other) noexcept {
-    ref_ = std::exchange(other.ref_, nullptr);
+    ref_ = other.ref_;
+    other.ref_ = nullptr;
     return *this;
   }
 
