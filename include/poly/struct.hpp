@@ -18,6 +18,7 @@
 #include "poly/method_table.hpp"
 #include "poly/property_table.hpp"
 #include "poly/storage.hpp"
+#include <type_traits>
 
 namespace poly {
 namespace detail {
@@ -250,33 +251,81 @@ namespace detail {
       return *this;
     }
 
+    /**
+     * call a non const method with arguments args.
+     * @param args parameters for the method
+     * @tparam MethodName name of the method
+     * @tparam Args argument types
+     * @returns the value returned by the method
+     */
     template<typename MethodName, typename... Args>
     constexpr decltype(auto)
     call(Args&&... args) noexcept(nothrow_callable<MethodName, Args...>) {
+      static_assert(
+          std::is_invocable_v<const vtable_type, MethodName, void*, Args...>,
+          "Attempting to call a method that does not exist!");
       assert(vtable());
       return (*vtable())(MethodName{},
                          storage_.data(),
                          std::forward<Args>(args)...);
     }
 
+    /**
+     * Call a const method with arguments args.
+     * @param args parameters for the method
+     * @tparam MethodName name of the method
+     * @tparam Args argument types
+     * @returns the value returned by the method
+     */
     template<typename MethodName, typename... Args>
     constexpr decltype(auto) call(Args&&... args) const
         noexcept(nothrow_callable<MethodName, Args...>) {
+      static_assert(std::is_invocable_v<const vtable_type,
+                                        MethodName,
+                                        const void*,
+                                        Args...>,
+                    "Attempting to call a method that does not exist!");
       assert(vtable());
       return (*vtable())(MethodName{},
                          storage_.data(),
                          std::forward<Args>(args)...);
     }
 
+    /**
+     * Set the value of a property.
+     * @param value the new value of the property
+     * @tparam Name the properties name
+     * @returns boolean indicating if the new value was set (true) or not set
+     * (false).
+     */
     template<typename Name, typename = std::enable_if_t<not is_const<Name>>>
     constexpr bool
     set(const value_type_for<Name>& value) noexcept(is_nothrow<Name>) {
       return ptable()->set(Name{}, storage_.data(), value);
     }
+
+    /**
+     * Get the value of a property.
+     * @tparam Name the properties name
+     * @returns the properties value.
+     */
     template<typename Name>
     constexpr value_type_for<Name> get() const noexcept(is_nothrow<Name>) {
       return ptable()->get(Name{}, storage_.data());
     }
+
+    /**
+     * returns true if an object is bound to the struct, i.e. the storage is not
+     * empty, else false.
+     */
+    constexpr bool is_bound() const noexcept {
+      return storage_.data() == nullptr;
+    }
+
+    /**
+     * same as is_bound().
+     */
+    constexpr operator bool() const { return is_bound(); }
 
   private:
     constexpr const vtable_type* vtable() const noexcept { return vtbl_; }
