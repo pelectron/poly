@@ -349,7 +349,7 @@ namespace detail {
     constexpr const ptable_type* ptable() const noexcept { return vtbl_; }
 
     using struct_table = detail::struct_table<property_specs, method_specs>;
-    const struct_table* vtbl_;
+    const struct_table* vtbl_{nullptr};
     StorageType storage_{};
   };
 } // namespace detail
