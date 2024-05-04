@@ -4,13 +4,6 @@ project('poly', 'cpp',
 
 inc = include_directories('include')
 
-# needed for testing
-catch_dep = dependency( 'catch2',
-                        default_options:['tests=false'],
-                        fallback: ['catch2', 'catch2_with_main_dep'],
-                        version:  '>=3.4.0',
-                        required: false)
-
 opts = ['macros', 
         'injection', 
         'method_injection', 
@@ -75,11 +68,12 @@ install_headers('include/poly/alloc.hpp',
                 subdir: 'poly')
 
 if get_option('tests')
-  if not catch_dep.found()
-    error('Catch depdendency was not found, but the \'test\' option was',
-      'specified. Set \'tests\' to false if Catch and/or Wrap DB is',
-      'unavailable.')
-  endif
+  # needed for testing
+  catch_dep = dependency( 'catch2',
+                          default_options:['tests=false'],
+                          fallback: ['catch2', 'catch2_with_main_dep'],
+                          version:  '>=3.4.0',
+                          required: true)
   test_args = args+extra_args
   test_exe = executable('main', 
                         sources:[ 'tests/function.cpp',
