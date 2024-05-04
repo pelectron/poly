@@ -214,6 +214,13 @@ namespace detail {
     }
     /// @}
 
+    constexpr struct_impl& operator=(const struct_impl& other) noexcept(
+        std::is_nothrow_copy_assignable_v<StorageType>) {
+      vtbl_ = nullptr;
+      storage_ = other.storage_;
+      vtbl_ = other.vtbl_;
+      return *this;
+    }
     template<typename OtherStorage,
              typename = std::enable_if_t<
                  std::is_assignable_v<StorageType, const OtherStorage&>>>
@@ -236,6 +243,14 @@ namespace detail {
                     L<OverLoads...>>&&
             other) noexcept(std::is_nothrow_assignable_v<StorageType,
                                                          OtherStorage&&>) {
+      vtbl_ = nullptr;
+      storage_ = std::move(other.storage_);
+      vtbl_ = std::exchange(other.vtbl_, nullptr);
+      return *this;
+    }
+    constexpr struct_impl& operator=(
+        struct_impl&&
+            other) noexcept(std::is_nothrow_move_assignable_v<StorageType>) {
       vtbl_ = nullptr;
       storage_ = std::move(other.storage_);
       vtbl_ = std::exchange(other.vtbl_, nullptr);
