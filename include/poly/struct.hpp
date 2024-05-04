@@ -143,6 +143,10 @@ namespace detail {
 
     /// copy ctor
     /// @{
+    constexpr struct_impl(const struct_impl& other) noexcept(
+        std::is_nothrow_copy_constructible_v<StorageType>)
+        : storage_(other.storage_), vtbl_(other.vtbl_) {}
+
     template<typename OtherStorage,
              typename = std::enable_if_t<
                  std::is_constructible_v<StorageType, const OtherStorage&>>>
@@ -177,6 +181,7 @@ namespace detail {
                                                             OtherStorage&&>)
         : storage_(std::move(other.storage_)),
           vtbl_(std::exchange(other.vtbl_, nullptr)) {}
+
     constexpr struct_impl(struct_impl&& other) noexcept(
         std::is_nothrow_constructible_v<StorageType, StorageType&&>)
         : storage_(std::move(other.storage_)),
