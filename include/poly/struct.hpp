@@ -190,8 +190,8 @@ namespace detail {
 
     /// construct from a T
     /// @{
-    template<typename T, typename = std::enable_if_t<
-                             not traits::is_storage_v<std::decay_t<T>>>>
+    template<typename T, typename = std::enable_if_t<not std::is_base_of_v<
+                             struct_impl, std::decay_t<T>>>>
     constexpr struct_impl(T&& t) noexcept(
         detail::nothrow_emplaceable_v<StorageType, std::decay_t<T>,
                                       decltype(t)>) {
@@ -202,9 +202,7 @@ namespace detail {
     }
 
     /// in place constructing a T
-    template<typename T, typename... Args,
-             typename = std::enable_if_t<
-                 not std::is_base_of_v<struct_impl, std::decay_t<T>>>>
+    template<typename T, typename... Args>
     constexpr struct_impl(traits::Id<T>, Args&&... args) noexcept(
         detail::nothrow_emplaceable_v<StorageType, T, decltype(args)...>) {
       storage_.template emplace<T>(std::forward<Args>(args)...);
@@ -248,9 +246,8 @@ namespace detail {
       vtbl_ = std::exchange(other.vtbl_, nullptr);
       return *this;
     }
-    constexpr struct_impl& operator=(
-        struct_impl&&
-            other) noexcept(std::is_nothrow_move_assignable_v<StorageType>) {
+    constexpr struct_impl& operator=(struct_impl&& other) noexcept(
+        std::is_nothrow_move_assignable_v<StorageType>) {
       vtbl_ = nullptr;
       storage_ = std::move(other.storage_);
       vtbl_ = std::exchange(other.vtbl_, nullptr);
