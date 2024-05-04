@@ -14,8 +14,10 @@
 
 namespace poly::detail {
 
-#ifdef POLY_HEADER_ONLY
-#  ifdef POLY_ON_WINDOWS
+#if __STDC_HOSTED__ == 1
+// in hosted environments, mem_alloc and mem_free are implemented -> heap_storage is available.
+#  ifdef POLY_HEADER_ONLY
+#    ifdef POLY_ON_WINDOWS
 /// allocates uninitialized memory with size `size` and alignment `align` using
 /// operator new(size_t,std::align_val_t, std::nothrow_t).
 /// @returns pointer to allocated memory on success. Returns nullptr if
@@ -29,7 +31,7 @@ namespace poly::detail {
 /// @param p pointer returned by mem_alloc(size,align)
 /// @param align must be the same alignment value passed in to mem_alloc().
 inline void mem_free(void* p) noexcept { _aligned_free(p); }
-#  else
+#    else
 /// allocates uninitialized memory with size `size` and alignment `align` using
 /// operator new(size_t,std::align_val_t, std::nothrow_t).
 /// @returns pointer to allocated memory on success. Returns nullptr if
@@ -37,17 +39,15 @@ inline void mem_free(void* p) noexcept { _aligned_free(p); }
 [[nodiscard]] inline void* mem_alloc(std::size_t size,
                                      std::size_t align) noexcept {
   using namespace std; // std::aligned_alloc is not available on some platforms
-                       // even in C++17, but should be ::aligned_alloc hsould be
-                       // present.
+                       // even in C++17, but ::aligned_alloc should be present.
   return aligned_alloc(align, size);
 }
 
 /// deallocates memory allocated with mem_alloc().
 /// @param p pointer returned by mem_alloc(size,align)
-/// @param align must be the same alignment value passed in to mem_alloc().
 inline void mem_free(void* p) noexcept { std::free(p); }
-#  endif
-#else
+#    endif
+#  else
 /// allocates uninitialized memory with size `size` and alignment `align`
 [[nodiscard]] POLY_API void*
 mem_alloc(std::size_t size,
@@ -57,6 +57,15 @@ mem_alloc(std::size_t size,
 /// @param p pointer returned by mem_alloc(size,align)
 POLY_API void mem_free(void* p) noexcept;
 
+#  endif
+#else
+
+// in freestanding mode, dynamic allocation is not supported by default and
+// must be enabled by implementing poly::detail::mem_alloc and
+// poly::detail::mem_free.
+
+[[nodiscard]] POLY_API void* mem_alloc(std::size_t size, std::size_t align);
+POLY_API void mem_free(void* p) noexcept;
 #endif
 
 #if __cplusplus >= 202002L
