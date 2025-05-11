@@ -85,7 +85,8 @@ namespace detail {
             struct_impl<StorageType, L<PropertySpecs...>, MethodSpecs,
                         L<OverLoads...>>,
             PropertySpecs>... {
-
+    template<POLY_STORAGE, POLY_TYPE_LIST, POLY_TYPE_LIST, POLY_TYPE_LIST>
+    friend struct POLY_EMPTY_BASE struct_impl;
     template<POLY_STORAGE, POLY_TYPE_LIST, POLY_TYPE_LIST, POLY_TYPE_LIST>
     friend struct poly::detail::interface_impl;
 
