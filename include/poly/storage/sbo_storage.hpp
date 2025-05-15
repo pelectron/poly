@@ -15,6 +15,7 @@
  */
 #ifndef POLY_STOARGE_SBO_STORAGE_HPP
 #define POLY_STOARGE_SBO_STORAGE_HPP
+#include "poly/alloc.hpp"
 #include "poly/config.hpp"
 #include "poly/fwd.hpp"
 
@@ -69,7 +70,8 @@ namespace detail {
       return sbo_resource_table<true>{
           // .copy =
           +[](void* dest, const void* src) {
-            construct_at(static_cast<T*>(dest), *static_cast<const T*>(src));
+            poly::detail::construct_at(static_cast<T*>(dest),
+                                       *static_cast<const T*>(src));
           },
           // .heap_copy =
           +[](const void* src) -> void* {
@@ -77,8 +79,8 @@ namespace detail {
           },
           // .move =
           +[](void* dest, void* src) {
-            construct_at(static_cast<T*>(dest),
-                         std::move(*static_cast<T*>(src)));
+            poly::detail::construct_at(static_cast<T*>(dest),
+                                       std::move(*static_cast<T*>(src)));
           },
           // .heap_move =
           +[](void* src) -> void* {
@@ -96,8 +98,8 @@ namespace detail {
       return sbo_resource_table<false>{
           // .move =
           +[](void* dest, void* src) {
-            construct_at(static_cast<T*>(dest),
-                         std::move(*static_cast<T*>(src)));
+            poly::detail::construct_at(static_cast<T*>(dest),
+                                       std::move(*static_cast<T*>(src)));
           },
           // .heap_move =
           +[](void* src) -> void* {
@@ -200,14 +202,14 @@ namespace detail {
     /// @tparam Args arguments for constructing a T
     /// @returns reference to the stored T
     template<typename T, typename... Args>
-    T* emplace(Args&&... args) noexcept(
+    POLY_CONSTEXPR T* emplace(Args&&... args) noexcept(
         std::is_nothrow_constructible_v<T, Args...> and sizeof(T) <= Size and
         alignof(T) <= Alignment) {
       reset();
       T* ret = nullptr;
       if constexpr (sizeof(T) <= Size and alignof(T) <= Alignment) {
-        ret = construct_at(reinterpret_cast<T*>(buffer.buffer),
-                           std::forward<Args>(args)...);
+        ret = poly::detail::construct_at(reinterpret_cast<T*>(buffer.buffer),
+                                         std::forward<Args>(args)...);
         if (!ret)
           return nullptr;
       } else {
@@ -262,8 +264,7 @@ namespace detail {
           other.vtbl_->move(buffer.buffer, other.buffer.heap);
         } else {
           // move others buffer object into this buffer
-          other.vtbl_->move(buffer.buffer,
-                            other.buffer.buffer);
+          other.vtbl_->move(buffer.buffer, other.buffer.buffer);
         }
         // copy others vtable before others reset
         // others vtable is not touched to ensure proper destruction
@@ -310,8 +311,7 @@ namespace detail {
           other.vtbl_->copy(buffer.buffer, other.buffer.heap);
         } else {
           // copy others buffer object into this buffer
-          other.vtbl_->copy(buffer.buffer,
-                            other.buffer.buffer);
+          other.vtbl_->copy(buffer.buffer, other.buffer.buffer);
         }
       } else {
         // others object does not fit into small buffer
@@ -340,16 +340,14 @@ namespace detail {
     template<typename T>
     constexpr T* as() noexcept {
       if (vtbl_->size <= Size and vtbl_->align <= Alignment)
-        return static_cast<T*>(
-            static_cast<void*>(buffer.buffer));
+        return static_cast<T*>(static_cast<void*>(buffer.buffer));
       return static_cast<T*>(buffer.heap);
     }
 
     template<typename T>
     constexpr const T* as() const noexcept {
       if (vtbl_->size <= Size and vtbl_->align <= Alignment)
-        return static_cast<const T*>(
-            static_cast<const void*>(buffer.buffer));
+        return static_cast<const T*>(static_cast<const void*>(buffer.buffer));
       return static_cast<const T*>(buffer.heap);
     }
 

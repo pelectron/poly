@@ -15,6 +15,7 @@
  */
 #ifndef POLY_VARIANT_STORAGE_HPP
 #define POLY_VARIANT_STORAGE_HPP
+#include "poly/alloc.hpp"
 #include "poly/config.hpp"
 #include "poly/fwd.hpp"
 #include "poly/traits.hpp"
@@ -74,7 +75,7 @@ namespace detail {
                     "The type T must be in the list of types the "
                     "variant storage is defined with.");
       if constexpr (std::is_same_v<T, value_type>) {
-        return construct_at(&value_, std::forward<Args>(args)...);
+        return poly::detail::construct_at(&value_, std::forward<Args>(args)...);
       } else {
         if constexpr (is_last) {
           static_assert(always_false<T>, "Library bug!");
@@ -86,7 +87,7 @@ namespace detail {
 
     constexpr void copy(const variant_impl& other, std::size_t idx) {
       if (I == idx) {
-        construct_at(&value_, other.value_);
+        poly::detail::construct_at(&value_, other.value_);
       } else {
         if constexpr (not is_last)
           rest_.copy(other.rest_, idx);
@@ -95,7 +96,7 @@ namespace detail {
 
     constexpr void move(variant_impl&& other, std::size_t idx) {
       if (I == idx) {
-        construct_at(&value_, std::move(other.value_));
+        poly::detail::construct_at(&value_, std::move(other.value_));
       } else {
         if constexpr (not is_last)
           rest_.move(std::move(other.rest_), idx);

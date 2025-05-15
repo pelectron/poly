@@ -61,22 +61,23 @@ namespace detail {
                 // allocating memory
                 void* mem = mem_alloc(sizeof(heap_block), alignof(heap_block));
                 // default construction of heap_blcok into allcoateds memory
-                auto* ret = construct_at(reinterpret_cast<heap_block*>(mem));
+                auto* ret = poly::detail::construct_at(
+                    reinterpret_cast<heap_block*>(mem));
                 // reassign data members
                 ret->copy_ = block->copy_;
                 ret->destroy_ = block->destroy_;
                 // copying the T in buffer
-                ret->obj =
-                    construct_at(reinterpret_cast<T*>(ret->buffer),
-                                 *reinterpret_cast<const T*>(block->buffer));
+                ret->obj = poly::detail::construct_at(
+                    reinterpret_cast<T*>(ret->buffer),
+                    *reinterpret_cast<const T*>(block->buffer));
                 return ret;
               },
               +[](basic_heap_block<Copyable>* o) {
                 std::destroy_at(static_cast<T*>(o->obj));
                 mem_free(o);
               }} {
-      this->obj = construct_at(reinterpret_cast<T*>(buffer),
-                               std::forward<Args>(args)...);
+      this->obj = poly::detail::construct_at(reinterpret_cast<T*>(buffer),
+                                             std::forward<Args>(args)...);
     }
 
     template<typename T, typename... Args, bool C = Copyable, bool NC = !C,
@@ -88,8 +89,8 @@ namespace detail {
                                        std::destroy_at(static_cast<T*>(o->obj));
                                        mem_free(o);
                                      }} {
-      this->obj = construct_at(reinterpret_cast<T*>(buffer),
-                               std::forward<Args>(args)...);
+      this->obj = poly::detail::construct_at(reinterpret_cast<T*>(buffer),
+                                             std::forward<Args>(args)...);
     }
 
     alignas(Align) std::byte buffer[Size]{};

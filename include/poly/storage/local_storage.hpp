@@ -46,12 +46,13 @@ namespace detail {
       return resource_table<true>{
           //.copy =
           +[](void* dest, const void* src) {
-            construct_at(static_cast<T*>(dest), *static_cast<const T*>(src));
+            poly::detail::construct_at(static_cast<T*>(dest),
+                                       *static_cast<const T*>(src));
           },
           //.move =
           +[](void* dest, void* src) {
-            construct_at(static_cast<T*>(dest),
-                         std::move(*static_cast<T*>(src)));
+            poly::detail::construct_at(static_cast<T*>(dest),
+                                       std::move(*static_cast<T*>(src)));
           },
           //.destroy =
           +[](void* src) { std::destroy_at(static_cast<T*>(src)); }};
@@ -59,8 +60,8 @@ namespace detail {
       return resource_table<false>{
           //.move =
           +[](void* dest, void* src) {
-            construct_at(static_cast<T*>(dest),
-                         std::move(*static_cast<T*>(src)));
+            poly::detail::construct_at(static_cast<T*>(dest),
+                                       std::move(*static_cast<T*>(src)));
           },
           //.destroy =
           +[](void* src) { std::destroy_at(static_cast<T*>(src)); }};
@@ -150,8 +151,8 @@ namespace detail {
       static_assert(alignof(T) <= Alignment,
                     "The alignment of T is to large to fit into this");
       reset();
-      T* ret = construct_at(reinterpret_cast<T*>(buffer_),
-                            std::forward<Args>(args)...);
+      T* ret = poly::detail::construct_at(static_cast<T*>(buffer_),
+                                          std::forward<Args>(args)...);
       if (!ret)
         return nullptr;
       vtbl_ = &resource_table_for<Copyable, T>;
